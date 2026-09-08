@@ -311,7 +311,7 @@ export default function FridgeForm({
                           <tr key={idx} className={row.isNA ? "row-na" : ""}>
                             <td style={{ fontWeight: 600 }}>
                               <span>{row.productName} #{row.machineNumber}</span>
-                              <span style={{ fontSize: "0.75rem", color: "var(--accent)", background: "rgba(59,130,246,0.12)", padding: "2px 8px", borderRadius: "99px", fontWeight: 600 }}>
+                              <span style={{ fontSize: "0.75rem", color: "var(--accent)", background: "rgba(120,53,15,0.09)", padding: "2px 8px", borderRadius: "99px", fontWeight: 600 }}>
                                 {row.referenceTemp}
                               </span>
                             </td>
@@ -329,7 +329,7 @@ export default function FridgeForm({
                             </td>
                             <td>
                               {row.isNA ? (
-                                <div style={{ width: "100%", textAlign: "center", padding: "0.4rem", background: "rgba(255,255,255,0.03)", borderRadius: "6px", color: "var(--text-muted)", fontSize: "0.8rem", fontWeight: 600 }}>
+                                <div style={{ width: "100%", textAlign: "center", padding: "0.4rem", background: "#f5f2ec", borderRadius: "6px", color: "var(--text-muted)", fontSize: "0.8rem", fontWeight: 600 }}>
                                   Powered Down / Not in Use
                                 </div>
                               ) : (

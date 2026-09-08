@@ -2,29 +2,29 @@
 
 /* ─── Design Tokens ─────────────────────────────────────────────────────────── */
 :root {
-  --bg-primary: #0a0d14;
-  --bg-secondary: #111827;
-  --bg-card: rgba(255, 255, 255, 0.04);
-  --bg-card-hover: rgba(255, 255, 255, 0.07);
-  --bg-input: rgba(255, 255, 255, 0.06);
+  --bg-primary: #f8f6f1;
+  --bg-secondary: #ffffff;
+  --bg-card: #ffffff;
+  --bg-card-hover: #faf7f2;
+  --bg-input: #ffffff;
 
-  --border: rgba(255, 255, 255, 0.08);
-  --border-focus: rgba(99, 179, 237, 0.5);
+  --border: #e6dfd5;
+  --border-focus: #78350f;
 
-  --accent: #3b82f6;
-  --accent-hover: #2563eb;
-  --accent-glow: rgba(59, 130, 246, 0.3);
+  --accent: #78350f;
+  --accent-hover: #5c280b;
+  --accent-glow: rgba(120, 53, 15, 0.15);
 
-  --success: #10b981;
-  --success-bg: rgba(16, 185, 129, 0.12);
-  --warning: #f59e0b;
-  --warning-bg: rgba(245, 158, 11, 0.12);
-  --danger: #ef4444;
-  --danger-bg: rgba(239, 68, 68, 0.12);
+  --success: #15803d;
+  --success-bg: rgba(21, 128, 61, 0.09);
+  --warning: #b45309;
+  --warning-bg: rgba(180, 83, 9, 0.09);
+  --danger: #dc2626;
+  --danger-bg: rgba(220, 38, 38, 0.09);
 
-  --text-primary: #f1f5f9;
-  --text-secondary: #94a3b8;
-  --text-muted: #475569;
+  --text-primary: #1c1917;
+  --text-secondary: #44403c;
+  --text-muted: #78716c;
 
   --sidebar-width: 260px;
   --header-height: 64px;
@@ -34,10 +34,10 @@
   --radius-lg: 16px;
   --radius-xl: 24px;
 
-  --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
-  --shadow-md: 0 4px 16px rgba(0,0,0,0.4);
-  --shadow-lg: 0 8px 32px rgba(0,0,0,0.5);
-  --shadow-glow: 0 0 24px var(--accent-glow);
+  --shadow-sm: 0 1px 3px rgba(44, 30, 20, 0.05);
+  --shadow-md: 0 4px 14px rgba(44, 30, 20, 0.07);
+  --shadow-lg: 0 10px 30px rgba(44, 30, 20, 0.1);
+  --shadow-glow: 0 0 16px var(--accent-glow);
 
   --transition: 0.2s ease;
 }
@@ -184,8 +184,9 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 }
 
 .nav-item.active {
-  background: rgba(59, 130, 246, 0.12);
+  background: #f5eee6;
   color: var(--accent);
+  font-weight: 600;
 }
 
 .nav-item.active::before {
@@ -234,7 +235,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--accent), #8b5cf6);
+  background: linear-gradient(135deg, var(--accent), #b45309);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -266,8 +267,9 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   left: var(--sidebar-width);
   right: 0;
   height: var(--header-height);
-  background: rgba(10, 13, 20, 0.85);
+  background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
@@ -299,7 +301,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: 1.5rem;
-  backdrop-filter: blur(8px);
+  box-shadow: var(--shadow-sm);
 }
 
 .card-header {
@@ -338,11 +340,12 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   align-items: flex-start;
   gap: 1rem;
   transition: all var(--transition);
+  box-shadow: var(--shadow-sm);
 }
 
 .stat-card:hover {
   background: var(--bg-card-hover);
-  border-color: rgba(255,255,255,0.12);
+  border-color: #d6cdc1;
   transform: translateY(-1px);
   box-shadow: var(--shadow-md);
 }
@@ -358,10 +361,10 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   flex-shrink: 0;
 }
 
-.stat-icon.blue { background: rgba(59,130,246,0.12); }
-.stat-icon.green { background: rgba(16,185,129,0.12); }
-.stat-icon.amber { background: rgba(245,158,11,0.12); }
-.stat-icon.red { background: rgba(239,68,68,0.12); }
+.stat-icon.blue { background: rgba(120, 53, 15, 0.09); color: var(--accent); }
+.stat-icon.green { background: rgba(21, 128, 61, 0.09); color: var(--success); }
+.stat-icon.amber { background: rgba(180, 83, 9, 0.09); color: var(--warning); }
+.stat-icon.red { background: rgba(220, 38, 38, 0.09); color: var(--danger); }
 
 .stat-value {
   font-size: 1.75rem;
@@ -479,13 +482,13 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 .form-group input:focus,
 .form-group select:focus,
 .form-group textarea:focus {
-  border-color: rgba(255, 255, 255, 0.2);
+  border-color: var(--border-focus);
   outline: none !important;
   box-shadow: none !important;
 }
 
 .form-group select option {
-  background: var(--bg-secondary);
+  background: #ffffff;
   color: var(--text-primary);
 }
 
@@ -508,23 +511,23 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 }
 
 .checklist-table thead tr {
-  background: rgba(255,255,255,0.04);
+  background: #f4efea;
 }
 
 .checklist-table th {
   text-align: left;
   padding: 0.75rem 1rem;
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--text-muted);
+  color: #57534e;
   border-bottom: 1px solid var(--border);
 }
 
 .checklist-table td {
   padding: 0.625rem 1rem;
-  border-bottom: 1px solid rgba(255,255,255,0.04);
+  border-bottom: 1px solid #ede7df;
   color: var(--text-primary);
 }
 
@@ -535,20 +538,20 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 }
 
 .checklist-table .zone-row td {
-  background: rgba(59,130,246,0.06);
-  font-weight: 600;
+  background: #f5eee6;
+  font-weight: 700;
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--accent);
-  padding: 0.5rem 1rem;
+  padding: 0.6rem 1rem;
 }
 
 .checklist-table td input[type="text"],
 .checklist-table td input[type="time"],
 .checklist-table td select {
   background: var(--bg-input);
-  border: 1px solid var(--border);
+  border: 1px solid #d6cdc1;
   border-radius: 6px;
   padding: 0.4rem 0.6rem;
   color: var(--text-primary);
@@ -562,7 +565,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 
 .checklist-table td input:focus,
 .checklist-table td select:focus {
-  border-color: rgba(255, 255, 255, 0.2);
+  border-color: var(--border-focus);
   outline: none !important;
   box-shadow: none !important;
 }
@@ -578,7 +581,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   gap: 0.5rem;
   align-items: center;
   padding: 0.75rem;
-  background: var(--bg-input);
+  background: #f5eee6;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   margin-bottom: 1rem;
@@ -586,8 +589,8 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 
 .quick-action-bar span {
   font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--text-muted);
+  font-weight: 700;
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-right: 0.25rem;
@@ -595,10 +598,10 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 
 .touch-btn-toggle {
   display: inline-flex;
-  border: 1px solid var(--border);
+  border: 1px solid #d6cdc1;
   border-radius: 6px;
   overflow: hidden;
-  background: var(--bg-input);
+  background: #f5eee6;
 }
 
 .touch-btn-option {
@@ -607,7 +610,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   font-weight: 600;
   border: none;
   background: transparent;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all var(--transition);
   white-space: nowrap;
@@ -615,7 +618,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 
 .touch-btn-option:hover {
   color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(0, 0, 0, 0.04);
 }
 
 .touch-btn-option.active-yes {
@@ -650,22 +653,22 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   border-radius: 4px;
   font-size: 0.7rem;
   font-weight: 700;
-  border: 1px solid var(--border);
-  background: var(--bg-input);
-  color: var(--text-muted);
+  border: 1px solid #d6cdc1;
+  background: #ffffff;
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all var(--transition);
 }
 
 .na-toggle-btn.is-na {
-  background: #475569;
+  background: #64748b;
   color: white;
   border-color: #64748b;
 }
 
 .row-na {
-  opacity: 0.45;
-  background: rgba(255, 255, 255, 0.015);
+  opacity: 0.5;
+  background: #f5f2ec;
 }
 
 /* ─── Buttons ────────────────────────────────────────────────────────────────── */
@@ -689,19 +692,20 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 
 .btn-primary:hover {
   background: var(--accent-hover);
-  box-shadow: var(--shadow-glow);
+  box-shadow: var(--shadow-sm);
   transform: translateY(-1px);
 }
 
 .btn-secondary {
-  background: var(--bg-card);
+  background: #ffffff;
   color: var(--text-secondary);
-  border: 1px solid var(--border);
+  border: 1px solid #d6cdc1;
 }
 
 .btn-secondary:hover {
-  background: var(--bg-card-hover);
+  background: #f5eee6;
   color: var(--text-primary);
+  border-color: #c4b9aa;
 }
 
 .btn-danger {
@@ -813,20 +817,20 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(ellipse at 20% 50%, rgba(59, 130, 246, 0.08) 0%, transparent 60%),
-    radial-gradient(ellipse at 80% 20%, rgba(139, 92, 246, 0.06) 0%, transparent 60%);
+    radial-gradient(ellipse at 20% 50%, rgba(180, 83, 9, 0.08) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 20%, rgba(120, 53, 15, 0.05) 0%, transparent 60%);
   pointer-events: none;
 }
 
 .login-card {
-  background: var(--bg-secondary);
+  background: #ffffff;
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
   padding: 2.5rem;
   width: 100%;
   max-width: 420px;
   position: relative;
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 12px 36px rgba(44, 30, 20, 0.08);
 }
 
 .login-logo {
@@ -837,14 +841,14 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 .login-logo-icon {
   width: 60px;
   height: 60px;
-  background: linear-gradient(135deg, var(--accent), #8b5cf6);
+  background: linear-gradient(135deg, var(--accent), #b45309);
   border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 1.75rem;
   margin: 0 auto 1rem;
-  box-shadow: var(--shadow-glow);
+  box-shadow: 0 4px 14px rgba(120, 53, 15, 0.2);
 }
 
 .login-logo h1 {
@@ -863,7 +867,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 
 .login-error {
   background: var(--danger-bg);
-  border: 1px solid rgba(239,68,68,0.2);
+  border: 1px solid rgba(220,38,38,0.2);
   color: var(--danger);
   padding: 0.75rem 1rem;
   border-radius: var(--radius-sm);
@@ -910,6 +914,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   padding: 0.5rem 0.75rem;
+  box-shadow: var(--shadow-sm);
 }
 
 .date-nav-btn {
@@ -934,7 +939,6 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 }
 
 .date-nav input[type="date"]::-webkit-calendar-picker-indicator {
-  filter: invert(0.6);
   cursor: pointer;
 }
 
@@ -952,13 +956,13 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 
 .submission-banner.submitted {
   background: var(--success-bg);
-  border: 1px solid rgba(16,185,129,0.2);
+  border: 1px solid rgba(21,128,61,0.2);
   color: var(--success);
 }
 
 .submission-banner.pending {
   background: var(--warning-bg);
-  border: 1px solid rgba(245,158,11,0.2);
+  border: 1px solid rgba(180,83,9,0.2);
   color: var(--warning);
 }
 
@@ -1007,7 +1011,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 }
 
 .access-toggle.on { background: var(--success); }
-.access-toggle.off { background: var(--text-muted); opacity: 0.4; }
+.access-toggle.off { background: #d6cdc1; }
 
 .access-toggle::after {
   content: '';
@@ -1018,6 +1022,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   border-radius: 50%;
   background: white;
   transition: left var(--transition);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
 }
 
 .access-toggle.on::after { left: 21px; }
@@ -1052,17 +1057,18 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 }
 
 .calendar-day.empty { background: transparent; }
-.calendar-day.submitted { background: rgba(16,185,129,0.25); color: var(--success); }
-.calendar-day.missed { background: rgba(239,68,68,0.2); color: var(--danger); }
+.calendar-day.submitted { background: rgba(21,128,61,0.15); color: var(--success); font-weight: 700; }
+.calendar-day.missed { background: rgba(220,38,38,0.12); color: var(--danger); }
 .calendar-day.today { ring: 2px solid var(--accent); outline: 2px solid var(--accent); }
-.calendar-day.future { background: rgba(255,255,255,0.03); color: var(--text-muted); }
+.calendar-day.future { background: #f5f2ec; color: var(--text-muted); }
 
 /* ─── Modal ──────────────────────────────────────────────────────────────────── */
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.6);
+  background: rgba(44,30,20,0.4);
   backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1071,13 +1077,13 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 }
 
 .modal {
-  background: var(--bg-secondary);
+  background: #ffffff;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 2rem;
   width: 100%;
   max-width: 480px;
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 16px 40px rgba(44,30,20,0.15);
   animation: modalIn 0.2s ease;
 }
 
@@ -1238,7 +1244,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   left: 0;
   right: 0;
   height: 60px;
-  background: rgba(15, 23, 42, 0.95);
+  background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border);
@@ -1249,7 +1255,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 }
 
 .mobile-hamburger-btn {
-  background: var(--bg-card);
+  background: #ffffff;
   border: 1px solid var(--border);
   color: var(--text-primary);
   width: 40px;
@@ -1261,6 +1267,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   font-size: 1.25rem;
   cursor: pointer;
   touch-action: manipulation;
+  box-shadow: var(--shadow-sm);
 }
 
 .mobile-hamburger-btn:active {
@@ -1288,7 +1295,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   gap: 0.4rem;
   padding: 0.25rem 0.6rem;
   border-radius: 99px;
-  background: var(--bg-input);
+  background: #f5eee6;
   border: 1px solid var(--border);
   font-size: 0.72rem;
   font-weight: 600;
@@ -1306,7 +1313,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   display: none;
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(44, 30, 20, 0.4);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   z-index: 998;
@@ -1320,7 +1327,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 }
 
 .sidebar-close-btn {
-  background: var(--bg-input);
+  background: #f5eee6;
   border: 1px solid var(--border);
   color: var(--text-muted);
   width: 32px;
@@ -1382,10 +1389,11 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
     bottom: 0;
     width: 290px;
     max-width: 85vw;
+    background: #ffffff;
     z-index: 999;
     transform: translateX(-100%);
     transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    box-shadow: 4px 0 30px rgba(0, 0, 0, 0.7);
+    box-shadow: 4px 0 30px rgba(44, 30, 20, 0.15);
   }
 
   .sidebar.open {
@@ -1411,11 +1419,6 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 
   .page-header h1 {
     font-size: 1.35rem;
-  }
-
-  .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 0.65rem;
   }
 
   .stats-grid {
@@ -1497,8 +1500,9 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 
   .checklist-table tr.zone-row td {
     display: block;
-    background: linear-gradient(90deg, rgba(59, 130, 246, 0.18), rgba(59, 130, 246, 0.05));
+    background: #f5eee6;
     border-left: 3px solid var(--accent);
+    color: var(--accent);
     border-radius: 6px;
     padding: 0.5rem 0.75rem;
     font-size: 0.8rem;
@@ -1509,12 +1513,12 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   .checklist-table tr:not(.zone-row) {
     display: flex;
     flex-direction: column;
-    background: var(--bg-card);
+    background: #ffffff;
     border: 1px solid var(--border);
     border-radius: 12px;
     padding: 0.85rem;
     gap: 0.65rem;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    box-shadow: 0 2px 8px rgba(44, 30, 20, 0.04);
   }
 
   .checklist-table tr:not(.zone-row) td {
@@ -1531,7 +1535,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
     font-weight: 700;
     color: var(--text-primary);
     padding-bottom: 0.4rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    border-bottom: 1px solid #ede7df;
     margin-bottom: 0.15rem;
     display: flex;
     align-items: center;
@@ -1550,7 +1554,8 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
     display: flex;
     border-radius: 8px;
     overflow: hidden;
-    border: 1px solid var(--border);
+    border: 1px solid #d6cdc1;
+    background: #f5eee6;
   }
 
   .touch-btn-option {
@@ -1579,8 +1584,8 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
     padding: 0.75rem;
     gap: 0.5rem;
     border-radius: 10px;
-    background: rgba(30, 41, 59, 0.7);
-    border: 1px solid rgba(59, 130, 246, 0.2);
+    background: #f5eee6;
+    border: 1px solid #e6dfd5;
   }
 
   .quick-action-bar .btn {
@@ -1607,13 +1612,13 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
     bottom: 0;
     left: 0;
     right: 0;
-    background: rgba(15, 23, 42, 0.96);
+    background: rgba(255, 255, 255, 0.96);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    border-top: 1px solid var(--border);
+    border-top: 1px solid #e6dfd5;
     padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom, 0px));
     z-index: 800;
-    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.6);
+    box-shadow: 0 -4px 20px rgba(44, 30, 20, 0.08);
   }
 
   .form-actions .btn {
@@ -1658,7 +1663,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
     left: 0;
     background: var(--bg-card);
     z-index: 2;
-    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.3);
+    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.08);
   }
 }
 
