@@ -92,12 +92,15 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const completedSheetsCount = outletSheets.filter((s) => s.list.length > 0).length;
   const totalSubmissionsToday = outletSheets.reduce((acc, s) => acc + s.list.length, 0);
 
+  const userName = user?.name || "User";
+  const firstName = userName.split(" ")[0] || "User";
+
   return (
     <div className="page-container fade-in">
       {/* Header */}
       <div className="page-header" style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "flex-end", gap: "1rem" }}>
         <div className="page-header-text">
-          <h1>👋 Good day, {user.name.split(" ")[0]}!</h1>
+          <h1>👋 Good day, {firstName}!</h1>
           <p>
             Current Sub-Account: <strong>{activeOutlet.icon} {activeOutlet.name}</strong> · {formatDate(today)}
           </p>

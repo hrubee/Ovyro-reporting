@@ -65,7 +65,7 @@ export default function UsersClient({ initialUsers }: { initialUsers: UserType[]
                   <td style={{ fontWeight: 600 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
                       <div style={{ width: 32, height: 32, borderRadius: "50%", background: "linear-gradient(135deg,#3b82f6,#8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: "0.75rem", color: "white" }}>
-                        {u.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
+                        {(u.name || u.email || "U").split(" ").filter(Boolean).map((n) => n[0]).join("").slice(0, 2).toUpperCase() || "U"}
                       </div>
                       {u.name}
                     </div>

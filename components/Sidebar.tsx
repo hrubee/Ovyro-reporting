@@ -7,7 +7,7 @@ import { useOutlet } from "./OutletContext";
 import OutletSelector from "./OutletSelector";
 
 interface SidebarProps {
-  user: { name: string; email: string; role: string };
+  user: { name?: string | null; email?: string | null; role?: string | null };
   sheetStatuses?: Record<string, boolean | null>; // null = no access
 }
 
@@ -15,13 +15,16 @@ export default function Sidebar({ user, sheetStatuses = {} }: SidebarProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { activeOutlet } = useOutlet();
-  const isAdmin = user.role === "ADMIN";
-  const initials = user.name
+
+  const isAdmin = user?.role === "ADMIN";
+  const userName = user?.name || user?.email || "User";
+  const initials = userName
     .split(" ")
+    .filter(Boolean)
     .map((n) => n[0])
     .join("")
     .toUpperCase()
-    .slice(0, 2);
+    .slice(0, 2) || "U";
 
   // Close mobile sidebar on route change
   useEffect(() => {
@@ -41,7 +44,8 @@ export default function Sidebar({ user, sheetStatuses = {} }: SidebarProps) {
   }, [mobileOpen]);
 
   // Filter done and accessible counts for current active outlet
-  const outletRoutes = activeOutlet.sheets.map((s) => s.route);
+  const sheets = activeOutlet?.sheets || [];
+  const outletRoutes = sheets.map((s) => s.route);
   const doneCount = outletRoutes.filter((r) => sheetStatuses[r] === true).length;
   const accessibleTotal = isAdmin
     ? outletRoutes.length
@@ -68,7 +72,7 @@ export default function Sidebar({ user, sheetStatuses = {} }: SidebarProps) {
         <div className="mobile-status-pill">
           <span className="pill-dot" />
           <span>
-            {activeOutlet.icon} {doneCount}/{accessibleTotal} Done
+            {activeOutlet?.icon || "🥐"} {doneCount}/{accessibleTotal} Done
           </span>
         </div>
       </header>
@@ -116,10 +120,10 @@ export default function Sidebar({ user, sheetStatuses = {} }: SidebarProps) {
 
           {/* Active Outlet Sheet Links */}
           <div className="nav-section-title">
-            <span>{activeOutlet.name} Daily Sheets</span>
+            <span>{activeOutlet?.name || "Bakery"} Daily Sheets</span>
           </div>
 
-          {activeOutlet.sheets.map((item) => {
+          {sheets.map((item) => {
             const status = sheetStatuses[item.route];
             const hasAccess = status !== null && status !== undefined;
             const done = status === true;
@@ -188,8 +192,8 @@ export default function Sidebar({ user, sheetStatuses = {} }: SidebarProps) {
           <div className="sidebar-user">
             <div className="sidebar-avatar">{initials}</div>
             <div className="sidebar-user-info">
-              <div className="sidebar-user-name">{user.name}</div>
-              <div className="sidebar-user-role">{user.role.toLowerCase()}</div>
+              <div className="sidebar-user-name">{userName}</div>
+              <div className="sidebar-user-role">{(user?.role || "staff").toLowerCase()}</div>
             </div>
             <button
               className="logout-btn"
