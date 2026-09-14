@@ -1,12 +1,12 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import Link from "next/link";
-import { SHEET_LABELS, SHEET_ROUTES, getTodayString, formatDate } from "@/lib/permissions";
+import { SHEET_LABELS, SHEET_ROUTES, getTodayString, formatDate, SheetId } from "@/lib/permissions";
+import { OUTLETS, getOutletById } from "@/lib/outlets";
 
-type SheetKey = keyof typeof SHEET_LABELS;
-
-const SHEET_ICONS: Record<SheetKey, string> = {
+const SHEET_ICONS: Record<SheetId, string> = {
   HYGIENE_REPORT: "🧹",
   GLASS_REPORT: "🪟",
   FRIDGE_REPORT: "🧊",
@@ -14,10 +14,11 @@ const SHEET_ICONS: Record<SheetKey, string> = {
   PRODUCTION: "🏭",
   PUFF_ROOM: "🥐",
   CAKE_ROOM: "🎂",
+  ORETA_HYGIENE: "✨",
 };
 
 async function getTodayStatus(today: string) {
-  const [hygiene, glass, fridge, kitchen, production, puffRoom, cakeRoom] =
+  const [hygiene, glass, fridge, kitchen, production, puffRoom, cakeRoom, oretaHygiene] =
     await Promise.all([
       prisma.hygieneEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }),
       prisma.glassEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }),
@@ -26,28 +27,48 @@ async function getTodayStatus(today: string) {
       prisma.productionEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }),
       prisma.puffRoomEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }),
       prisma.cakeRoomEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }),
+      prisma.oretaHygieneEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }),
     ]);
 
-  return { hygiene, glass, fridge, kitchen, production, puffRoom, cakeRoom };
+  return { hygiene, glass, fridge, kitchen, production, puffRoom, cakeRoom, oretaHygiene };
 }
 
-export default async function DashboardPage() {
+interface PageProps {
+  searchParams: Promise<{ outlet?: string }>;
+}
+
+export default async function DashboardPage({ searchParams }: PageProps) {
   const session = await auth();
   if (!session?.user) redirect("/login");
   const user = session.user as { id: string; name: string; role: string };
 
+  const { outlet: outletParam } = await searchParams;
+  const cookieStore = await cookies();
+  const activeOutletId = outletParam || cookieStore.get("pnr_outlet")?.value || "bakery";
+  const activeOutlet = getOutletById(activeOutletId);
+
   const today = getTodayString();
   const statuses = await getTodayStatus(today);
 
-  const sheetsData = [
-    { key: "HYGIENE_REPORT" as SheetKey, list: statuses.hygiene },
-    { key: "GLASS_REPORT" as SheetKey, list: statuses.glass },
-    { key: "FRIDGE_REPORT" as SheetKey, list: statuses.fridge },
-    { key: "KITCHEN" as SheetKey, list: statuses.kitchen },
-    { key: "PRODUCTION" as SheetKey, list: statuses.production },
-    { key: "PUFF_ROOM" as SheetKey, list: statuses.puffRoom },
-    { key: "CAKE_ROOM" as SheetKey, list: statuses.cakeRoom },
-  ];
+  const allSheetsData: Record<SheetId, any[]> = {
+    HYGIENE_REPORT: statuses.hygiene,
+    GLASS_REPORT: statuses.glass,
+    FRIDGE_REPORT: statuses.fridge,
+    KITCHEN: statuses.kitchen,
+    PRODUCTION: statuses.production,
+    PUFF_ROOM: statuses.puffRoom,
+    CAKE_ROOM: statuses.cakeRoom,
+    ORETA_HYGIENE: statuses.oretaHygiene,
+  };
+
+  // Filter sheets to only the active outlet's sheets
+  const outletSheets = activeOutlet.sheets.map((s) => ({
+    key: s.id as SheetId,
+    list: allSheetsData[s.id as SheetId] || [],
+    label: s.label,
+    icon: s.icon,
+    route: s.route,
+  }));
 
   // Access list for employee
   let accessibleSheets: Set<string> = new Set();
@@ -61,16 +82,36 @@ export default async function DashboardPage() {
     accessibleSheets = new Set(access.map((a: { sheet: string }) => a.sheet));
   }
 
-  const completedSheetsCount = sheetsData.filter((s) => s.list.length > 0).length;
-  const totalSubmissionsToday = sheetsData.reduce((acc, s) => acc + s.list.length, 0);
+  const totalSheetsInOutlet = outletSheets.length;
+  const completedSheetsCount = outletSheets.filter((s) => s.list.length > 0).length;
+  const totalSubmissionsToday = outletSheets.reduce((acc, s) => acc + s.list.length, 0);
 
   return (
     <div className="page-container fade-in">
       {/* Header */}
-      <div className="page-header">
+      <div className="page-header" style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "flex-end", gap: "1rem" }}>
         <div className="page-header-text">
           <h1>👋 Good day, {user.name.split(" ")[0]}!</h1>
-          <p>Today is {formatDate(today)}</p>
+          <p>
+            Current Sub-Account: <strong>{activeOutlet.icon} {activeOutlet.name}</strong> · {formatDate(today)}
+          </p>
+        </div>
+
+        {/* Outlet Switcher Pills */}
+        <div style={{ display: "flex", gap: "0.5rem", background: "#ffffff", padding: "0.35rem", borderRadius: "10px", border: "1px solid var(--border)" }}>
+          {OUTLETS.map((out) => {
+            const isActive = out.id === activeOutlet.id;
+            return (
+              <Link
+                key={out.id}
+                href={`/dashboard?outlet=${out.id}`}
+                className={`btn btn-sm ${isActive ? "btn-primary" : "btn-secondary"}`}
+                style={{ padding: "0.4rem 0.85rem", fontSize: "0.85rem" }}
+              >
+                {out.icon} {out.name}
+              </Link>
+            );
+          })}
         </div>
       </div>
 
@@ -79,22 +120,24 @@ export default async function DashboardPage() {
         <div className="stat-card">
           <div className="stat-icon blue">📋</div>
           <div>
-            <div className="stat-value">{completedSheetsCount}/7</div>
-            <div className="stat-label">Sheets Completed Today</div>
+            <div className="stat-value">
+              {completedSheetsCount}/{totalSheetsInOutlet}
+            </div>
+            <div className="stat-label">{activeOutlet.name} Sheets Completed</div>
           </div>
         </div>
         <div className="stat-card">
           <div className="stat-icon green">📝</div>
           <div>
             <div className="stat-value">{totalSubmissionsToday}</div>
-            <div className="stat-label">Total Entries Recorded</div>
+            <div className="stat-label">Total Entries Recorded Today</div>
           </div>
         </div>
         <div className="stat-card">
           <div className="stat-icon amber">⏳</div>
           <div>
-            <div className="stat-value">{7 - completedSheetsCount}</div>
-            <div className="stat-label">Pending Sheets</div>
+            <div className="stat-value">{totalSheetsInOutlet - completedSheetsCount}</div>
+            <div className="stat-label">Pending {activeOutlet.name} Sheets</div>
           </div>
         </div>
         {user.role === "ADMIN" && (
@@ -102,7 +145,7 @@ export default async function DashboardPage() {
             <div className="stat-icon blue">👥</div>
             <div>
               <div className="stat-value">
-                {Math.round((completedSheetsCount / 7) * 100)}%
+                {totalSheetsInOutlet > 0 ? Math.round((completedSheetsCount / totalSheetsInOutlet) * 100) : 0}%
               </div>
               <div className="stat-label">Daily Compliance Rate</div>
             </div>
@@ -114,23 +157,25 @@ export default async function DashboardPage() {
       <div className="card">
         <div className="card-header">
           <div>
-            <div className="card-title">📅 Today&apos;s Hygiene Status</div>
+            <div className="card-title">
+              📅 {activeOutlet.name} — Today&apos;s Compliance Status
+            </div>
             <div className="card-subtitle">{formatDate(today)}</div>
           </div>
           <div
             className="badge"
             style={
-              completedSheetsCount === 7
+              completedSheetsCount === totalSheetsInOutlet
                 ? { background: "var(--success-bg)", color: "var(--success)" }
                 : { background: "var(--warning-bg)", color: "var(--warning)" }
             }
           >
-            {completedSheetsCount} / 7 Completed
+            {completedSheetsCount} / {totalSheetsInOutlet} Completed
           </div>
         </div>
 
         <div className="status-grid">
-          {sheetsData.map(({ key, list }) => {
+          {outletSheets.map(({ key, list, label, icon, route }) => {
             const hasAccess = user.role === "ADMIN" || accessibleSheets.has(key);
             const isDone = list.length > 0;
             const latest = list[0];
@@ -144,17 +189,17 @@ export default async function DashboardPage() {
             return (
               <Link
                 key={key}
-                href={hasAccess ? SHEET_ROUTES[key] : "#"}
+                href={hasAccess ? route : "#"}
                 className={`status-card ${isDone ? "submitted" : "pending"} ${
                   !hasAccess ? "no-access" : ""
                 }`}
                 style={!hasAccess ? { opacity: 0.35, pointerEvents: "none" } : {}}
               >
                 <div className={`status-dot ${isDone ? "submitted" : "pending"}`}>
-                  {SHEET_ICONS[key]}
+                  {icon || SHEET_ICONS[key]}
                 </div>
                 <div className="status-info">
-                  <div className="status-name">{SHEET_LABELS[key]}</div>
+                  <div className="status-name">{label}</div>
                   <div className="status-meta">
                     {!hasAccess ? (
                       "No access"

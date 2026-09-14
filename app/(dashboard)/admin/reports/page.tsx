@@ -9,8 +9,8 @@ export default async function AdminReportsPage() {
   const user = session.user as { role: string };
   if (user.role !== "ADMIN") redirect("/dashboard");
 
-  // Pull last 60 days of all entries
-  const [hygiene, glass, fridge, kitchen, production, puffRoom, cakeRoom] =
+  // Pull last 60 days of all entries across all outlets
+  const [hygiene, glass, fridge, kitchen, production, puffRoom, cakeRoom, oretaHygiene] =
     await Promise.all([
       prisma.hygieneEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }),
       prisma.glassEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }),
@@ -19,6 +19,7 @@ export default async function AdminReportsPage() {
       prisma.productionEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }),
       prisma.puffRoomEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }),
       prisma.cakeRoomEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }),
+      prisma.oretaHygieneEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }),
     ]);
 
   return (
@@ -31,6 +32,7 @@ export default async function AdminReportsPage() {
         production: JSON.parse(JSON.stringify(production)),
         puffRoom: JSON.parse(JSON.stringify(puffRoom)),
         cakeRoom: JSON.parse(JSON.stringify(cakeRoom)),
+        oretaHygiene: JSON.parse(JSON.stringify(oretaHygiene)),
       }}
     />
   );

@@ -81,8 +81,23 @@ const CAKE_EQUIPMENT = [
   "WEIGHING SCALE 2", "OFFICE DESK", "STOOL / CHAIR",
 ];
 
+const ORETA_HYGIENE_AREAS = [
+  { id: 1, area: "KITCHEN", morning: "RAMESHWAR / BHARTI", afternoon: "RAMESHWAR / BHARTI", evening: "RAMESHWAR / BHARTI", night: "RAMESHWAR / BHARTI" },
+  { id: 2, area: "WASH ROOM", morning: "—", afternoon: "MANGLA / BHARTI", evening: "MANGLA / BHARTI", night: "MANGLA / BHARTI" },
+  { id: 3, area: "OUTDOOR CLEANING", morning: "MANGLA / BHARTI", afternoon: "MANGLA / BHARTI", evening: "MANGLA / BHARTI", night: "MANGLA / BHARTI" },
+  { id: 4, area: "INSIDE TOP / GROUND CLEANING", morning: "MANGLA / BHARTI", afternoon: "MANGLA / BHARTI", evening: "MANGLA / BHARTI", night: "MANGLA / BHARTI" },
+  { id: 5, area: "CASH COUNTER", morning: "ARZAAAN / NEW", afternoon: "ARZAAAN / NEW", evening: "ARZAAAN / NEW", night: "ARZAAAN / NEW" },
+  { id: 6, area: "DISPLAY COUNTERS", morning: "ARZAAAN / NEW", afternoon: "ARZAAAN / NEW", evening: "ARZAAAN / NEW", night: "ARZAAAN / NEW" },
+  { id: 7, area: "FREEZER", morning: "ARZAAAN / NEW", afternoon: "ARZAAAN / NEW", evening: "ARZAAAN / NEW", night: "ARZAAAN / NEW" },
+  { id: 8, area: "RACKS", morning: "ARZAAAN / NEW", afternoon: "ARZAAAN / NEW", evening: "ARZAAAN / NEW", night: "ARZAAAN / NEW" },
+  { id: 9, area: "STORE", morning: "ARZAAAN / NEW", afternoon: "ARZAAAN / NEW", evening: "ARZAAAN / NEW", night: "ARZAAAN / NEW" },
+  { id: 10, area: "DUSTING", morning: "BHARTI / MANGLA", afternoon: "BHARTI / MANGLA", evening: "BHARTI / MANGLA", night: "BHARTI / MANGLA" },
+  { id: 11, area: "TABLES / CHAIRS", morning: "BHARTI / RAMESHWAR", afternoon: "BHARTI / RAMESHWAR", evening: "BHARTI / RAMESHWAR", night: "BHARTI / RAMESHWAR" },
+  { id: 12, area: "WASHING VESSELS", morning: "BHARTI - RAMESHWAR", afternoon: "BHARTI - RAMESHWAR", evening: "BHARTI - RAMESHWAR", night: "BHARTI - RAMESHWAR" },
+];
+
 async function main() {
-  console.log("🌱 Seeding PNR Bakery Staff and Demo Reports...");
+  console.log("🌱 Seeding PNR Bakery & Oreta World Staff and Demo Reports...");
 
   const defaultPassword = await bcrypt.hash("Pnr@123", 12);
   const adminPassword = await bcrypt.hash("Admin@123", 12);
@@ -106,8 +121,9 @@ async function main() {
     create: { name: "Sandeep Gargate", email: "sandeep@pnr.com", passwordHash: defaultPassword, role: "ADMIN" },
   });
 
-  // 2. Employees / Staff
+  // 2. Employees / Staff across Outlets
   const staffList = [
+    // Bakery Staff
     { name: "Shridhar Jadhav", email: "shridhar@pnr.com", sheets: ["HYGIENE_REPORT"] },
     { name: "Pravin Jadhav", email: "pravin@pnr.com", sheets: ["HYGIENE_REPORT", "PRODUCTION", "KITCHEN"] },
     { name: "Mavshi", email: "mavshi@pnr.com", sheets: ["HYGIENE_REPORT", "PRODUCTION", "KITCHEN"] },
@@ -118,6 +134,11 @@ async function main() {
     { name: "Meraj Khan", email: "meraj@pnr.com", sheets: ["CAKE_ROOM"] },
     { name: "Jaseen Siddique", email: "jaseen@pnr.com", sheets: ["CAKE_ROOM"] },
     { name: "Nadeem Faruqi", email: "nadeem@pnr.com", sheets: ["CAKE_ROOM"] },
+    // Oreta World Staff
+    { name: "Rameshwar", email: "rameshwar@pnr.com", sheets: ["ORETA_HYGIENE"] },
+    { name: "Bharti", email: "bharti@pnr.com", sheets: ["ORETA_HYGIENE"] },
+    { name: "Mangla", email: "mangla@pnr.com", sheets: ["ORETA_HYGIENE"] },
+    { name: "Arzaaan", email: "arzaaan@pnr.com", sheets: ["ORETA_HYGIENE"] },
   ];
 
   const createdStaff: Record<string, string> = {};
@@ -139,7 +160,7 @@ async function main() {
     }
   }
 
-  console.log("✅ All Bakery Supervisors & Staff Created with Sheet Access!");
+  console.log("✅ All Bakery & Oreta World Staff Created with Sheet Access!");
 
   // Clean previous demo entries
   await prisma.hygieneEntry.deleteMany({});
@@ -149,6 +170,7 @@ async function main() {
   await prisma.productionEntry.deleteMany({});
   await prisma.puffRoomEntry.deleteMany({});
   await prisma.cakeRoomEntry.deleteMany({});
+  await prisma.oretaHygieneEntry.deleteMany({});
 
   // Seed 7 days of realistic historical demo data
   for (let daysAgo = 7; daysAgo >= 1; daysAgo--) {
@@ -156,7 +178,7 @@ async function main() {
     const day = dayName(daysAgo);
     const supervisor = daysAgo % 2 === 0 ? "Aboli Wagh" : "Sandeep Gargate";
 
-    // Hygiene (Shridhar Jadhav & Pravin Jadhav)
+    // 1. Hygiene (Shridhar Jadhav & Pravin Jadhav)
     await prisma.hygieneEntry.create({
       data: {
         date, day,
@@ -175,7 +197,7 @@ async function main() {
       },
     });
 
-    // Glass (Sanjay Jadhav & Suresh)
+    // 2. Glass (Sanjay Jadhav & Suresh)
     await prisma.glassEntry.create({
       data: {
         date,
@@ -193,14 +215,14 @@ async function main() {
       },
     });
 
-    // Fridge (Aboli Wagh / Sandeep Gargate)
+    // 3. Fridge (Aboli Wagh / Sandeep Gargate)
     await prisma.fridgeEntry.create({
       data: {
         date,
         supervisedBy: supervisor,
         fridgeChecks: JSON.stringify(
           FRIDGE_ITEMS.map((item, idx) => {
-            const isNA = idx === 3 || idx === 4 || idx === 8; // Simulate 2 standby extra fridges not in use
+            const isNA = idx === 3 || idx === 4 || idx === 8;
             return {
               ...item,
               actualTempMorning: isNA ? "N/A" : item.zone.includes("FREEZER") ? "-17.5°C" : "+4.2°C",
@@ -216,7 +238,7 @@ async function main() {
       },
     });
 
-    // Kitchen (Sagar Yadav, Pravin Jadhav, Mavshi)
+    // 4. Kitchen (Sagar Yadav, Pravin Jadhav, Mavshi)
     await prisma.kitchenEntry.create({
       data: {
         date,
@@ -237,7 +259,7 @@ async function main() {
       },
     });
 
-    // Production (Sagar Yadav, Pravin Jadhav, Mavshi)
+    // 5. Production (Sagar Yadav, Pravin Jadhav, Mavshi)
     await prisma.productionEntry.create({
       data: {
         date,
@@ -258,7 +280,7 @@ async function main() {
       },
     });
 
-    // Puff Room (Dilip & Sandeep Gargate)
+    // 6. Puff Room (Dilip & Sandeep Gargate)
     await prisma.puffRoomEntry.create({
       data: {
         date,
@@ -279,7 +301,7 @@ async function main() {
       },
     });
 
-    // Cake Room (Meraj Khan, Jaseen Siddique, Nadeem Faruqi)
+    // 7. Cake Room (Meraj Khan, Jaseen Siddique, Nadeem Faruqi)
     await prisma.cakeRoomEntry.create({
       data: {
         date,
@@ -300,18 +322,61 @@ async function main() {
       },
     });
 
-    console.log(`✅ Seeded historical reports for ${date} (${day})`);
+    // 8. Oreta World Hygiene SOP (Rameshwar, Bharti, Mangla, Arzaaan)
+    await prisma.oretaHygieneEntry.create({
+      data: {
+        date,
+        day,
+        areaChecks: JSON.stringify(
+          ORETA_HYGIENE_AREAS.map((item) => ({
+            id: item.id,
+            area: item.area,
+            morning: {
+              status: item.morning === "—" ? "N/A" : "YES",
+              staff: item.morning === "—" ? "—" : item.morning,
+              time: "09:00",
+            },
+            afternoon: {
+              status: "YES",
+              staff: item.afternoon,
+              time: "14:00",
+            },
+            evening: {
+              status: "YES",
+              staff: item.evening,
+              time: "18:30",
+            },
+            night: {
+              status: "YES",
+              staff: item.night,
+              time: "22:00",
+            },
+          }))
+        ),
+        supervisorName: "Admin",
+        comments: "All 4 shifts completed at Oreta World outlet.",
+        correctiveAction: "",
+        submittedById: createdStaff["Rameshwar"] || admin.id,
+        createdAt: new Date(`${date}T22:15:00.000Z`),
+      },
+    });
+
+    console.log(`✅ Seeded historical reports for ${date} (${day}) across Bakery & Oreta World`);
   }
 
   console.log("\n📋 Login Credentials for Staff & Supervisors:");
   console.log("   Admin:       admin@pnr.com    / Admin@123");
   console.log("   Supervisor:  aboli@pnr.com    / Pnr@123  (Aboli Wagh)");
   console.log("   Supervisor:  sandeep@pnr.com  / Pnr@123  (Sandeep Gargate)");
-  console.log("   Staff:       shridhar@pnr.com / Pnr@123  (Shridhar Jadhav)");
-  console.log("   Staff:       pravin@pnr.com   / Pnr@123  (Pravin Jadhav)");
-  console.log("   Staff:       sagar@pnr.com    / Pnr@123  (Sagar Yadav)");
-  console.log("   Staff:       dilip@pnr.com    / Pnr@123  (Dilip)");
-  console.log("   Staff:       meraj@pnr.com    / Pnr@123  (Meraj Khan)");
+  console.log("   Bakery:      shridhar@pnr.com / Pnr@123  (Shridhar Jadhav)");
+  console.log("   Bakery:      pravin@pnr.com   / Pnr@123  (Pravin Jadhav)");
+  console.log("   Bakery:      sagar@pnr.com    / Pnr@123  (Sagar Yadav)");
+  console.log("   Bakery:      dilip@pnr.com    / Pnr@123  (Dilip)");
+  console.log("   Bakery:      meraj@pnr.com    / Pnr@123  (Meraj Khan)");
+  console.log("   Oreta World: rameshwar@pnr.com / Pnr@123 (Rameshwar)");
+  console.log("   Oreta World: bharti@pnr.com    / Pnr@123 (Bharti)");
+  console.log("   Oreta World: mangla@pnr.com    / Pnr@123 (Mangla)");
+  console.log("   Oreta World: arzaaan@pnr.com   / Pnr@123 (Arzaaan)");
 }
 
 main()

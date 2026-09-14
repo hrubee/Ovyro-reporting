@@ -2,13 +2,14 @@
 import { useState } from "react";
 
 const SHEETS = [
-  { key: "HYGIENE_REPORT", label: "Hygiene Report", icon: "🧹" },
-  { key: "GLASS_REPORT", label: "Glass Report", icon: "🪟" },
-  { key: "FRIDGE_REPORT", label: "Fridge Report", icon: "🧊" },
-  { key: "KITCHEN", label: "Kitchen", icon: "🍳" },
-  { key: "PRODUCTION", label: "Production", icon: "🏭" },
-  { key: "PUFF_ROOM", label: "Puff Room", icon: "🥐" },
-  { key: "CAKE_ROOM", label: "Cake Room", icon: "🎂" },
+  { key: "HYGIENE_REPORT", label: "Hygiene", icon: "🧹", outlet: "Bakery" },
+  { key: "GLASS_REPORT", label: "Glass", icon: "🪟", outlet: "Bakery" },
+  { key: "FRIDGE_REPORT", label: "Fridge", icon: "🧊", outlet: "Bakery" },
+  { key: "KITCHEN", label: "Kitchen", icon: "🍳", outlet: "Bakery" },
+  { key: "PRODUCTION", label: "Production", icon: "🏭", outlet: "Bakery" },
+  { key: "PUFF_ROOM", label: "Puff Room", icon: "🥐", outlet: "Bakery" },
+  { key: "CAKE_ROOM", label: "Cake Room", icon: "🎂", outlet: "Bakery" },
+  { key: "ORETA_HYGIENE", label: "Oreta Hygiene", icon: "✨", outlet: "Oreta World" },
 ];
 
 interface UserType { id: string; name: string; email: string; }
@@ -67,8 +68,8 @@ export default function AccessMatrixClient({
     <div className="page-container fade-in">
       <div className="page-header">
         <div className="page-header-text">
-          <h1>🔐 Access Matrix</h1>
-          <p>Manage which sheets each employee can access</p>
+          <h1>🔐 Multi-Outlet Access Matrix</h1>
+          <p>Manage which sheets each employee can access across Bakery and Oreta World</p>
         </div>
       </div>
 
@@ -81,9 +82,10 @@ export default function AccessMatrixClient({
               <tr>
                 <th>Employee</th>
                 {SHEETS.map((s) => (
-                  <th key={s.key} style={{ textAlign: "center" }}>
+                  <th key={s.key} style={{ textAlign: "center", minWidth: 90 }}>
                     <div>{s.icon}</div>
-                    <div style={{ fontSize: "0.65rem", marginTop: "2px" }}>{s.label}</div>
+                    <div style={{ fontSize: "0.68rem", fontWeight: 700, marginTop: "2px" }}>{s.label}</div>
+                    <div style={{ fontSize: "0.6rem", color: "var(--accent)" }}>{s.outlet}</div>
                   </th>
                 ))}
                 <th>Actions</th>
@@ -131,7 +133,7 @@ export default function AccessMatrixClient({
           </table>
         </div>
 
-        <div style={{ marginTop: "1.5rem", padding: "1rem", background: "rgba(59,130,246,0.06)", borderRadius: "8px", fontSize: "0.82rem", color: "var(--text-muted)" }}>
+        <div style={{ marginTop: "1.5rem", padding: "1rem", background: "rgba(120,53,15,0.06)", borderRadius: "8px", fontSize: "0.82rem", color: "var(--text-muted)" }}>
           <strong style={{ color: "var(--text-primary)" }}>ℹ️ How it works:</strong> Toggle the switches to grant or revoke sheet access per employee. Changes take effect immediately. Admin users always have full access regardless of this matrix.
         </div>
       </div>

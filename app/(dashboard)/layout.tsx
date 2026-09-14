@@ -1,12 +1,13 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import Sidebar from "@/components/Sidebar";
+import { OutletProvider } from "@/components/OutletContext";
 import { SHEET_ROUTES, getTodayString } from "@/lib/permissions";
 
 async function getSheetStatuses(userId: string, role: string, today: string) {
   const statuses: Record<string, boolean | null> = {};
-  const routes = Object.values(SHEET_ROUTES);
   const sheetKeys = Object.keys(SHEET_ROUTES) as Array<keyof typeof SHEET_ROUTES>;
 
   // Get user's sheet access
@@ -48,6 +49,9 @@ async function getSheetStatuses(userId: string, role: string, today: string) {
       case "CAKE_ROOM":
         submitted = !!(await prisma.cakeRoomEntry.findFirst({ where: { date: today } }));
         break;
+      case "ORETA_HYGIENE":
+        submitted = !!(await prisma.oretaHygieneEntry.findFirst({ where: { date: today } }));
+        break;
     }
     statuses[route] = submitted;
   }
@@ -63,14 +67,19 @@ export default async function DashboardLayout({
   const session = await auth();
   if (!session?.user) redirect("/login");
 
+  const cookieStore = await cookies();
+  const initialOutlet = cookieStore.get("pnr_outlet")?.value || "bakery";
+
   const user = session.user as { id: string; name: string; email: string; role: string };
   const today = getTodayString();
   const sheetStatuses = await getSheetStatuses(user.id, user.role, today);
 
   return (
-    <div className="layout">
-      <Sidebar user={user} sheetStatuses={sheetStatuses} />
-      <main className="main-content">{children}</main>
-    </div>
+    <OutletProvider initialOutletId={initialOutlet}>
+      <div className="layout">
+        <Sidebar user={user} sheetStatuses={sheetStatuses} />
+        <main className="main-content">{children}</main>
+      </div>
+    </OutletProvider>
   );
 }

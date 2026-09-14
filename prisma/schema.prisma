@@ -28,6 +28,7 @@ model User {
   productionEntries ProductionEntry[]
   puffRoomEntries   PuffRoomEntry[]
   cakeRoomEntries   CakeRoomEntry[]
+  oretaHygieneEntries OretaHygieneEntry[]
 }
 
 model SheetAccess {
@@ -172,3 +173,23 @@ model CakeRoomEntry {
 
   @@index([date])
 }
+
+// ─── ORETA WORLD HYGIENE & CLEANING SOP ───────────────────────────────────────
+model OretaHygieneEntry {
+  id               String   @id @default(cuid())
+  date             String
+  day              String
+  submittedById    String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  areaChecks       String   // JSON array of 12 areas, each having checks for morning, afternoon, evening, night
+  supervisorName   String   @default("")
+  comments         String   @default("")
+  correctiveAction String   @default("")
+
+  submittedBy User @relation(fields: [submittedById], references: [id])
+
+  @@index([date])
+}
+

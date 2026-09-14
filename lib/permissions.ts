@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { OUTLETS, getOutletById } from "@/lib/outlets";
 
 export type SheetId =
   | "HYGIENE_REPORT"
@@ -8,7 +9,8 @@ export type SheetId =
   | "KITCHEN"
   | "PRODUCTION"
   | "PUFF_ROOM"
-  | "CAKE_ROOM";
+  | "CAKE_ROOM"
+  | "ORETA_HYGIENE";
 
 export const SHEET_LABELS: Record<SheetId, string> = {
   HYGIENE_REPORT: "Hygiene Report",
@@ -18,6 +20,7 @@ export const SHEET_LABELS: Record<SheetId, string> = {
   PRODUCTION: "Production",
   PUFF_ROOM: "Puff Room",
   CAKE_ROOM: "Cake Room",
+  ORETA_HYGIENE: "Hygiene & Cleaning SOP",
 };
 
 export const SHEET_ROUTES: Record<SheetId, string> = {
@@ -28,9 +31,15 @@ export const SHEET_ROUTES: Record<SheetId, string> = {
   PRODUCTION: "/production",
   PUFF_ROOM: "/puff-room",
   CAKE_ROOM: "/cake-room",
+  ORETA_HYGIENE: "/oreta/hygiene",
 };
 
-export const SUPERVISORS = ["Aboli Wagh", "Sandeep Gargate", "Admin"];
+export const SUPERVISORS = [
+  "Aboli Wagh",
+  "Sandeep Gargate",
+  "Admin",
+  "Oreta Supervisor",
+];
 
 export const SHEET_STAFF: Record<SheetId, string[]> = {
   HYGIENE_REPORT: ["Shridhar Jadhav", "Pravin Jadhav", "Mavshi"],
@@ -40,6 +49,7 @@ export const SHEET_STAFF: Record<SheetId, string[]> = {
   PRODUCTION: ["Sagar Yadav", "Pravin Jadhav", "Mavshi"],
   PUFF_ROOM: ["Dilip", "Sandeep Gargate"],
   CAKE_ROOM: ["Meraj Khan", "Jaseen Siddique", "Nadeem Faruqi"],
+  ORETA_HYGIENE: ["Rameshwar", "Bharti", "Mangla", "Arzaaan", "New Staff", "Admin"],
 };
 
 export const ALL_STAFF = [
@@ -55,6 +65,11 @@ export const ALL_STAFF = [
   "Meraj Khan",
   "Jaseen Siddique",
   "Nadeem Faruqi",
+  "Rameshwar",
+  "Bharti",
+  "Mangla",
+  "Arzaaan",
+  "New Staff",
 ];
 
 export async function getUserSheetAccess(userId: string): Promise<SheetId[]> {

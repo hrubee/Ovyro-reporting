@@ -3,32 +3,18 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
-
-interface NavItem {
-  href: string;
-  icon: string;
-  label: string;
-  badge?: "done" | "pending" | null;
-}
+import { useOutlet } from "./OutletContext";
+import OutletSelector from "./OutletSelector";
 
 interface SidebarProps {
   user: { name: string; email: string; role: string };
   sheetStatuses?: Record<string, boolean | null>; // null = no access
 }
 
-const SHEET_NAV: NavItem[] = [
-  { href: "/hygiene", icon: "🧹", label: "Hygiene Report" },
-  { href: "/glass", icon: "🪟", label: "Glass Report" },
-  { href: "/fridge", icon: "🧊", label: "Fridge Report" },
-  { href: "/kitchen", icon: "🍳", label: "Kitchen" },
-  { href: "/production", icon: "🏭", label: "Production" },
-  { href: "/puff-room", icon: "🥐", label: "Puff Room" },
-  { href: "/cake-room", icon: "🎂", label: "Cake Room" },
-];
-
 export default function Sidebar({ user, sheetStatuses = {} }: SidebarProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { activeOutlet } = useOutlet();
   const isAdmin = user.role === "ADMIN";
   const initials = user.name
     .split(" ")
@@ -54,10 +40,12 @@ export default function Sidebar({ user, sheetStatuses = {} }: SidebarProps) {
     };
   }, [mobileOpen]);
 
-  const doneCount = Object.values(sheetStatuses).filter((v) => v === true).length;
+  // Filter done and accessible counts for current active outlet
+  const outletRoutes = activeOutlet.sheets.map((s) => s.route);
+  const doneCount = outletRoutes.filter((r) => sheetStatuses[r] === true).length;
   const accessibleTotal = isAdmin
-    ? 7
-    : Object.values(sheetStatuses).filter((v) => v !== null).length;
+    ? outletRoutes.length
+    : outletRoutes.filter((r) => sheetStatuses[r] !== null && sheetStatuses[r] !== undefined).length;
 
   return (
     <>
@@ -80,7 +68,7 @@ export default function Sidebar({ user, sheetStatuses = {} }: SidebarProps) {
         <div className="mobile-status-pill">
           <span className="pill-dot" />
           <span>
-            {doneCount}/{accessibleTotal} Done
+            {activeOutlet.icon} {doneCount}/{accessibleTotal} Done
           </span>
         </div>
       </header>
@@ -110,6 +98,9 @@ export default function Sidebar({ user, sheetStatuses = {} }: SidebarProps) {
             </button>
           </div>
           <p>Report Management System</p>
+
+          {/* Sub-Account / Outlet Switcher Segment */}
+          <OutletSelector />
         </div>
 
         <div className="sidebar-nav">
@@ -123,19 +114,21 @@ export default function Sidebar({ user, sheetStatuses = {} }: SidebarProps) {
             Dashboard
           </Link>
 
-          {/* Sheet Links */}
-          <div className="nav-section-title">Daily Sheets</div>
+          {/* Active Outlet Sheet Links */}
+          <div className="nav-section-title">
+            <span>{activeOutlet.name} Daily Sheets</span>
+          </div>
 
-          {SHEET_NAV.map((item) => {
-            const status = sheetStatuses[item.href];
+          {activeOutlet.sheets.map((item) => {
+            const status = sheetStatuses[item.route];
             const hasAccess = status !== null && status !== undefined;
             const done = status === true;
             return (
               <Link
-                key={item.href}
-                href={item.href}
+                key={item.route}
+                href={item.route}
                 onClick={() => setMobileOpen(false)}
-                className={`nav-item ${pathname === item.href ? "active" : ""} ${
+                className={`nav-item ${pathname === item.route ? "active" : ""} ${
                   !hasAccess && !isAdmin ? "no-access" : ""
                 }`}
                 style={
@@ -156,7 +149,7 @@ export default function Sidebar({ user, sheetStatuses = {} }: SidebarProps) {
           {/* Admin Links */}
           {isAdmin && (
             <>
-              <div className="nav-section-title">Admin</div>
+              <div className="nav-section-title">Admin Management</div>
               <Link
                 href="/admin/reports"
                 className={`nav-item ${
