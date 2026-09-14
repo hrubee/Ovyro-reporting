@@ -132,6 +132,21 @@ export async function GET() {
       );
     `);
 
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "OretaHygieneEntry" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "date" TEXT NOT NULL,
+        "day" TEXT NOT NULL,
+        "submittedById" TEXT NOT NULL REFERENCES "User"("id"),
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "areaChecks" TEXT NOT NULL,
+        "supervisorName" TEXT NOT NULL DEFAULT '',
+        "comments" TEXT NOT NULL DEFAULT '',
+        "correctiveAction" TEXT NOT NULL DEFAULT ''
+      );
+    `);
+
     // 2. Always ensure admin and staff exist
     const defaultPassword = await bcrypt.hash("Pnr@123", 12);
     const adminPassword = await bcrypt.hash("Admin@123", 12);
@@ -165,6 +180,10 @@ export async function GET() {
       { name: "Meraj Khan", email: "meraj@pnr.com", sheets: ["CAKE_ROOM"] },
       { name: "Jaseen Siddique", email: "jaseen@pnr.com", sheets: ["CAKE_ROOM"] },
       { name: "Nadeem Faruqi", email: "nadeem@pnr.com", sheets: ["CAKE_ROOM"] },
+      { name: "Rameshwar", email: "rameshwar@pnr.com", sheets: ["ORETA_HYGIENE"] },
+      { name: "Bharti", email: "bharti@pnr.com", sheets: ["ORETA_HYGIENE"] },
+      { name: "Mangla", email: "mangla@pnr.com", sheets: ["ORETA_HYGIENE"] },
+      { name: "Arzaaan", email: "arzaaan@pnr.com", sheets: ["ORETA_HYGIENE"] },
     ];
 
     for (const s of staffList) {
