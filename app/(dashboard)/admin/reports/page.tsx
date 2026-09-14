@@ -1,5 +1,5 @@
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/db";
+import { prisma, ensureDbSchema } from "@/lib/db";
 import { redirect } from "next/navigation";
 import ReportsClient from "./ReportsClient";
 
@@ -9,17 +9,19 @@ export default async function AdminReportsPage() {
   const user = session.user as { role: string };
   if (user.role !== "ADMIN") redirect("/dashboard");
 
-  // Pull last 60 days of all entries across all outlets
+  await ensureDbSchema();
+
+  // Pull last 60 days of all entries across all outlets safely
   const [hygiene, glass, fridge, kitchen, production, puffRoom, cakeRoom, oretaHygiene] =
     await Promise.all([
-      prisma.hygieneEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }),
-      prisma.glassEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }),
-      prisma.fridgeEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }),
-      prisma.kitchenEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }),
-      prisma.productionEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }),
-      prisma.puffRoomEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }),
-      prisma.cakeRoomEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }),
-      prisma.oretaHygieneEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }),
+      prisma.hygieneEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }).catch(() => []),
+      prisma.glassEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }).catch(() => []),
+      prisma.fridgeEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }).catch(() => []),
+      prisma.kitchenEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }).catch(() => []),
+      prisma.productionEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }).catch(() => []),
+      prisma.puffRoomEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }).catch(() => []),
+      prisma.cakeRoomEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }).catch(() => []),
+      prisma.oretaHygieneEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }).catch(() => []),
     ]);
 
   return (

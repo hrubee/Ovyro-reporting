@@ -1,5 +1,5 @@
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/db";
+import { prisma, ensureDbSchema } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import Sidebar from "@/components/Sidebar";
@@ -7,14 +7,20 @@ import { OutletProvider } from "@/components/OutletContext";
 import { SHEET_ROUTES, getTodayString } from "@/lib/permissions";
 
 async function getSheetStatuses(userId: string, role: string, today: string) {
+  await ensureDbSchema();
   const statuses: Record<string, boolean | null> = {};
   const sheetKeys = Object.keys(SHEET_ROUTES) as Array<keyof typeof SHEET_ROUTES>;
 
   // Get user's sheet access
-  const access = role === "ADMIN"
-    ? sheetKeys
-    : (await prisma.sheetAccess.findMany({ where: { userId }, select: { sheet: true } }))
-        .map((a: { sheet: string }) => a.sheet as keyof typeof SHEET_ROUTES);
+  let access: Array<keyof typeof SHEET_ROUTES> = sheetKeys;
+  if (role !== "ADMIN") {
+    try {
+      const userAccess = await prisma.sheetAccess.findMany({ where: { userId }, select: { sheet: true } });
+      access = userAccess.map((a: { sheet: string }) => a.sheet as keyof typeof SHEET_ROUTES);
+    } catch {
+      access = [];
+    }
+  }
 
   const accessSet = new Set(access);
 
@@ -25,33 +31,37 @@ async function getSheetStatuses(userId: string, role: string, today: string) {
       continue;
     }
 
-    // Check if submitted today
+    // Check if submitted today with safe try/catch
     let submitted = false;
-    switch (sheetKey) {
-      case "HYGIENE_REPORT":
-        submitted = !!(await prisma.hygieneEntry.findFirst({ where: { date: today } }));
-        break;
-      case "GLASS_REPORT":
-        submitted = !!(await prisma.glassEntry.findFirst({ where: { date: today } }));
-        break;
-      case "FRIDGE_REPORT":
-        submitted = !!(await prisma.fridgeEntry.findFirst({ where: { date: today } }));
-        break;
-      case "KITCHEN":
-        submitted = !!(await prisma.kitchenEntry.findFirst({ where: { date: today } }));
-        break;
-      case "PRODUCTION":
-        submitted = !!(await prisma.productionEntry.findFirst({ where: { date: today } }));
-        break;
-      case "PUFF_ROOM":
-        submitted = !!(await prisma.puffRoomEntry.findFirst({ where: { date: today } }));
-        break;
-      case "CAKE_ROOM":
-        submitted = !!(await prisma.cakeRoomEntry.findFirst({ where: { date: today } }));
-        break;
-      case "ORETA_HYGIENE":
-        submitted = !!(await prisma.oretaHygieneEntry.findFirst({ where: { date: today } }));
-        break;
+    try {
+      switch (sheetKey) {
+        case "HYGIENE_REPORT":
+          submitted = !!(await prisma.hygieneEntry.findFirst({ where: { date: today } }));
+          break;
+        case "GLASS_REPORT":
+          submitted = !!(await prisma.glassEntry.findFirst({ where: { date: today } }));
+          break;
+        case "FRIDGE_REPORT":
+          submitted = !!(await prisma.fridgeEntry.findFirst({ where: { date: today } }));
+          break;
+        case "KITCHEN":
+          submitted = !!(await prisma.kitchenEntry.findFirst({ where: { date: today } }));
+          break;
+        case "PRODUCTION":
+          submitted = !!(await prisma.productionEntry.findFirst({ where: { date: today } }));
+          break;
+        case "PUFF_ROOM":
+          submitted = !!(await prisma.puffRoomEntry.findFirst({ where: { date: today } }));
+          break;
+        case "CAKE_ROOM":
+          submitted = !!(await prisma.cakeRoomEntry.findFirst({ where: { date: today } }));
+          break;
+        case "ORETA_HYGIENE":
+          submitted = !!(await prisma.oretaHygieneEntry.findFirst({ where: { date: today } }));
+          break;
+      }
+    } catch (e) {
+      submitted = false;
     }
     statuses[route] = submitted;
   }

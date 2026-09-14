@@ -1,5 +1,5 @@
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/db";
+import { prisma, ensureDbSchema } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import Link from "next/link";
@@ -18,16 +18,17 @@ const SHEET_ICONS: Record<SheetId, string> = {
 };
 
 async function getTodayStatus(today: string) {
+  await ensureDbSchema();
   const [hygiene, glass, fridge, kitchen, production, puffRoom, cakeRoom, oretaHygiene] =
     await Promise.all([
-      prisma.hygieneEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }),
-      prisma.glassEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }),
-      prisma.fridgeEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }),
-      prisma.kitchenEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }),
-      prisma.productionEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }),
-      prisma.puffRoomEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }),
-      prisma.cakeRoomEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }),
-      prisma.oretaHygieneEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }),
+      prisma.hygieneEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }).catch(() => []),
+      prisma.glassEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }).catch(() => []),
+      prisma.fridgeEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }).catch(() => []),
+      prisma.kitchenEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }).catch(() => []),
+      prisma.productionEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }).catch(() => []),
+      prisma.puffRoomEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }).catch(() => []),
+      prisma.cakeRoomEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }).catch(() => []),
+      prisma.oretaHygieneEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }).catch(() => []),
     ]);
 
   return { hygiene, glass, fridge, kitchen, production, puffRoom, cakeRoom, oretaHygiene };
@@ -42,7 +43,8 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   if (!session?.user) redirect("/login");
   const user = session.user as { id: string; name: string; role: string };
 
-  const { outlet: outletParam } = await searchParams;
+  const resolvedParams = (await searchParams) || {};
+  const outletParam = resolvedParams.outlet;
   const cookieStore = await cookies();
   const activeOutletId = outletParam || cookieStore.get("pnr_outlet")?.value || "bakery";
   const activeOutlet = getOutletById(activeOutletId);
@@ -75,11 +77,15 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   if (user.role === "ADMIN") {
     accessibleSheets = new Set(Object.keys(SHEET_LABELS));
   } else {
-    const access = await prisma.sheetAccess.findMany({
-      where: { userId: user.id },
-      select: { sheet: true },
-    });
-    accessibleSheets = new Set(access.map((a: { sheet: string }) => a.sheet));
+    try {
+      const access = await prisma.sheetAccess.findMany({
+        where: { userId: user.id },
+        select: { sheet: true },
+      });
+      accessibleSheets = new Set(access.map((a: { sheet: string }) => a.sheet));
+    } catch {
+      accessibleSheets = new Set();
+    }
   }
 
   const totalSheetsInOutlet = outletSheets.length;

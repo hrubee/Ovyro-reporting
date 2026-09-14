@@ -1,5 +1,5 @@
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/db";
+import { prisma, ensureDbSchema } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { getTodayString, getDayName, hasSheetAccess } from "@/lib/permissions";
 import OretaHygieneForm from "./OretaHygieneForm";
@@ -11,6 +11,8 @@ interface PageProps {
 export default async function OretaHygienePage({ searchParams }: PageProps) {
   const session = await auth();
   if (!session?.user) redirect("/login");
+
+  await ensureDbSchema();
 
   const user = session.user as { id: string; name: string; email: string; role: string };
   const canAccess = await hasSheetAccess(user.id, "ORETA_HYGIENE", user.role);
@@ -24,15 +26,20 @@ export default async function OretaHygienePage({ searchParams }: PageProps) {
     );
   }
 
-  const { date: dateParam } = await searchParams;
-  const targetDate = dateParam || getTodayString();
+  const resolvedParams = (await searchParams) || {};
+  const targetDate = resolvedParams.date || getTodayString();
   const day = getDayName(targetDate);
 
-  const existingEntry = await prisma.oretaHygieneEntry.findFirst({
-    where: { date: targetDate },
-    orderBy: { createdAt: "desc" },
-    include: { submittedBy: { select: { name: true, email: true } } },
-  });
+  let existingEntry = null;
+  try {
+    existingEntry = await prisma.oretaHygieneEntry.findFirst({
+      where: { date: targetDate },
+      orderBy: { createdAt: "desc" },
+      include: { submittedBy: { select: { name: true, email: true } } },
+    });
+  } catch (err) {
+    console.error("Error fetching oreta entry:", err);
+  }
 
   const serializedEntry = existingEntry
     ? {

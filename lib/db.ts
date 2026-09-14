@@ -1,8 +1,8 @@
 import { PrismaClient } from "@prisma/client";
-import { withAccelerate } from "@prisma/extension-accelerate";
 
 const globalForPrisma = globalThis as unknown as {
   prisma: any;
+  schemaInitialized: boolean;
 };
 
 function getSanitizedDbUrl(): string {
@@ -53,3 +53,27 @@ function createPrismaClient() {
 export const prisma = globalForPrisma.prisma ?? createPrismaClient();
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+
+// Auto-create any missing tables silently without throwing
+export async function ensureDbSchema() {
+  if (globalForPrisma.schemaInitialized) return;
+  try {
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "OretaHygieneEntry" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "date" TEXT NOT NULL,
+        "day" TEXT NOT NULL,
+        "submittedById" TEXT NOT NULL REFERENCES "User"("id"),
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "areaChecks" TEXT NOT NULL,
+        "supervisorName" TEXT NOT NULL DEFAULT '',
+        "comments" TEXT NOT NULL DEFAULT '',
+        "correctiveAction" TEXT NOT NULL DEFAULT ''
+      );
+    `);
+    globalForPrisma.schemaInitialized = true;
+  } catch (err) {
+    console.error("Auto schema init check error:", err);
+  }
+}
