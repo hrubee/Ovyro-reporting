@@ -62,111 +62,87 @@ export function getOutletByRoute(pathname: string): OutletConfig {
 }
 
 // ─── Oreta World Hygiene SOP Template ─────────────────────────────────────────
-export interface OretaAreaCheck {
+export interface OretaAreaDefinition {
   id: number;
   area: string;
-  morning: { status: "YES" | "NO" | "N/A"; staff: string; time: string };
-  afternoon: { status: "YES" | "NO" | "N/A"; staff: string; time: string };
-  evening: { status: "YES" | "NO" | "N/A"; staff: string; time: string };
-  night: { status: "YES" | "NO" | "N/A"; staff: string; time: string };
+  assignedStaff: string[];
+  defaultStaff: string;
+  morningDisabled?: boolean;
 }
 
-export const ORETA_HYGIENE_AREAS = [
+export const ORETA_HYGIENE_AREAS: OretaAreaDefinition[] = [
   {
     id: 1,
     area: "KITCHEN",
-    morningStaff: "RAMESHWAR / BHARTI",
-    afternoonStaff: "RAMESHWAR / BHARTI",
-    eveningStaff: "RAMESHWAR / BHARTI",
-    nightStaff: "RAMESHWAR / BHARTI",
+    assignedStaff: ["Rameshwar", "Bharti"],
+    defaultStaff: "Rameshwar",
   },
   {
     id: 2,
     area: "WASH ROOM",
-    morningStaff: "—",
-    afternoonStaff: "MANGLA / BHARTI",
-    eveningStaff: "MANGLA / BHARTI",
-    nightStaff: "MANGLA / BHARTI",
+    assignedStaff: ["Mangla", "Bharti"],
+    defaultStaff: "Mangla",
+    morningDisabled: true,
   },
   {
     id: 3,
     area: "OUTDOOR CLEANING",
-    morningStaff: "MANGLA / BHARTI",
-    afternoonStaff: "MANGLA / BHARTI",
-    eveningStaff: "MANGLA / BHARTI",
-    nightStaff: "MANGLA / BHARTI",
+    assignedStaff: ["Mangla", "Bharti"],
+    defaultStaff: "Mangla",
   },
   {
     id: 4,
     area: "INSIDE TOP / GROUND CLEANING",
-    morningStaff: "MANGLA / BHARTI",
-    afternoonStaff: "MANGLA / BHARTI",
-    eveningStaff: "MANGLA / BHARTI",
-    nightStaff: "MANGLA / BHARTI",
+    assignedStaff: ["Mangla", "Bharti"],
+    defaultStaff: "Mangla",
   },
   {
     id: 5,
     area: "CASH COUNTER",
-    morningStaff: "ARZAAAN / NEW",
-    afternoonStaff: "ARZAAAN / NEW",
-    eveningStaff: "ARZAAAN / NEW",
-    nightStaff: "ARZAAAN / NEW",
+    assignedStaff: ["Arzaaan", "New Staff"],
+    defaultStaff: "Arzaaan",
   },
   {
     id: 6,
     area: "DISPLAY COUNTERS",
-    morningStaff: "ARZAAAN / NEW",
-    afternoonStaff: "ARZAAAN / NEW",
-    eveningStaff: "ARZAAAN / NEW",
-    nightStaff: "ARZAAAN / NEW",
+    assignedStaff: ["Arzaaan", "New Staff"],
+    defaultStaff: "Arzaaan",
   },
   {
     id: 7,
     area: "FREEZER",
-    morningStaff: "ARZAAAN / NEW",
-    afternoonStaff: "ARZAAAN / NEW",
-    eveningStaff: "ARZAAAN / NEW",
-    nightStaff: "ARZAAAN / NEW",
+    assignedStaff: ["Arzaaan", "New Staff"],
+    defaultStaff: "Arzaaan",
   },
   {
     id: 8,
     area: "RACKS",
-    morningStaff: "ARZAAAN / NEW",
-    afternoonStaff: "ARZAAAN / NEW",
-    eveningStaff: "ARZAAAN / NEW",
-    nightStaff: "ARZAAAN / NEW",
+    assignedStaff: ["Arzaaan", "New Staff"],
+    defaultStaff: "Arzaaan",
   },
   {
     id: 9,
     area: "STORE",
-    morningStaff: "ARZAAAN / NEW",
-    afternoonStaff: "ARZAAAN / NEW",
-    eveningStaff: "ARZAAAN / NEW",
-    nightStaff: "ARZAAAN / NEW",
+    assignedStaff: ["Arzaaan", "New Staff"],
+    defaultStaff: "Arzaaan",
   },
   {
     id: 10,
     area: "DUSTING",
-    morningStaff: "BHARTI / MANGLA",
-    afternoonStaff: "BHARTI / MANGLA",
-    eveningStaff: "BHARTI / MANGLA",
-    nightStaff: "BHARTI / MANGLA",
+    assignedStaff: ["Bharti", "Mangla"],
+    defaultStaff: "Bharti",
   },
   {
     id: 11,
     area: "TABLES / CHAIRS",
-    morningStaff: "BHARTI / RAMESHWAR",
-    afternoonStaff: "BHARTI / RAMESHWAR",
-    eveningStaff: "BHARTI / RAMESHWAR",
-    nightStaff: "BHARTI / RAMESHWAR",
+    assignedStaff: ["Bharti", "Rameshwar"],
+    defaultStaff: "Bharti",
   },
   {
     id: 12,
     area: "WASHING VESSELS",
-    morningStaff: "BHARTI - RAMESHWAR",
-    afternoonStaff: "BHARTI - RAMESHWAR",
-    eveningStaff: "BHARTI - RAMESHWAR",
-    nightStaff: "BHARTI - RAMESHWAR",
+    assignedStaff: ["Bharti", "Rameshwar"],
+    defaultStaff: "Bharti",
   },
 ];
 
