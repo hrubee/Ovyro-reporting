@@ -86,16 +86,22 @@ export default function OretaEquipmentForm({
     try {
       const parsed = JSON.parse(entry.equipmentChecks);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        // Normalize fields if from previous format
-        const normalized = parsed.map((p, idx) => {
-          const itemDef = ORETA_EQUIPMENT_ITEMS[idx] || { id: idx + 1, name: p.name || p.equipment || `Item ${idx + 1}`, category: p.category || "General", defaultCleanedBy: "Mangla" };
+        // Normalize fields strictly matching active ORETA_EQUIPMENT_ITEMS
+        const normalized = ORETA_EQUIPMENT_ITEMS.map((itemDef) => {
+          const matched = parsed.find(
+            (p: any) =>
+              (p.equipment && p.equipment.toLowerCase() === itemDef.name.toLowerCase()) ||
+              (p.name && p.name.toLowerCase() === itemDef.name.toLowerCase()) ||
+              (itemDef.name === "Ice tea machine" && (p.equipment === "Iced machine" || p.name === "Iced machine")) ||
+              p.id === itemDef.id
+          );
           return {
-            id: p.id || itemDef.id,
-            equipment: p.equipment || p.name || itemDef.name,
-            category: p.category || itemDef.category,
-            yesNo: p.yesNo || p.status || "",
-            time: p.time || "",
-            name: p.name || p.cleanedBy || itemDef.defaultCleanedBy,
+            id: itemDef.id,
+            equipment: itemDef.name,
+            category: itemDef.category,
+            yesNo: matched ? (matched.yesNo || matched.status || "") : "",
+            time: matched ? (matched.time || "") : "",
+            name: matched ? (matched.name || matched.cleanedBy || itemDef.defaultCleanedBy) : itemDef.defaultCleanedBy,
           };
         });
         setChecks(normalized);
@@ -205,7 +211,7 @@ export default function OretaEquipmentForm({
       <div className="page-header">
         <div className="page-header-text">
           <h1>⚙️ Oreta World Equipment Cleaning</h1>
-          <p>41-Item Kitchen, Beverage, Prep, Display & Facility Log — {todayLabel}</p>
+          <p>{ORETA_EQUIPMENT_ITEMS.length}-Item Kitchen, Beverage, Prep, Display & Facility Log — {todayLabel}</p>
         </div>
         <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
           {!isEditing && (
