@@ -72,6 +72,65 @@ export async function ensureDbSchema() {
         "correctiveAction" TEXT NOT NULL DEFAULT ''
       );
     `);
+
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "OretaEquipmentEntry" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "date" TEXT NOT NULL,
+        "submittedById" TEXT NOT NULL REFERENCES "User"("id"),
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "equipmentChecks" TEXT NOT NULL,
+        "supervisorName" TEXT NOT NULL DEFAULT '',
+        "comments" TEXT NOT NULL DEFAULT '',
+        "correctiveAction" TEXT NOT NULL DEFAULT ''
+      );
+    `);
+
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "OretaFridgeEntry" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "date" TEXT NOT NULL,
+        "supervisedBy" TEXT NOT NULL DEFAULT '',
+        "submittedById" TEXT NOT NULL REFERENCES "User"("id"),
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "fridgeChecks" TEXT NOT NULL,
+        "hygiene" TEXT NOT NULL DEFAULT '',
+        "comments" TEXT NOT NULL DEFAULT '',
+        "correctiveAction" TEXT NOT NULL DEFAULT ''
+      );
+    `);
+
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "OretaGlassEntry" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "date" TEXT NOT NULL,
+        "submittedById" TEXT NOT NULL REFERENCES "User"("id"),
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "locationChecks" TEXT NOT NULL,
+        "supervisorName" TEXT NOT NULL DEFAULT '',
+        "comments" TEXT NOT NULL DEFAULT '',
+        "correctiveAction" TEXT NOT NULL DEFAULT ''
+      );
+    `);
+
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "OretaMonthlyEntry" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "month" TEXT NOT NULL,
+        "date" TEXT NOT NULL,
+        "submittedById" TEXT NOT NULL REFERENCES "User"("id"),
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "taskChecks" TEXT NOT NULL,
+        "supervisorName" TEXT NOT NULL DEFAULT '',
+        "comments" TEXT NOT NULL DEFAULT '',
+        "correctiveAction" TEXT NOT NULL DEFAULT ''
+      );
+    `);
+
     globalForPrisma.schemaInitialized = true;
   } catch (err) {
     console.error("Auto schema init check error:", err);

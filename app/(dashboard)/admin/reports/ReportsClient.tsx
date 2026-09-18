@@ -10,12 +10,18 @@ const SHEETS = [
   { key: "production", label: "Production", icon: "🏭", route: "/production", outlet: "bakery" },
   { key: "puffRoom", label: "Puff Room", icon: "🥐", route: "/puff-room", outlet: "bakery" },
   { key: "cakeRoom", label: "Cake Room", icon: "🎂", route: "/cake-room", outlet: "bakery" },
-  { key: "oretaHygiene", label: "Oreta Hygiene SOP", icon: "✨", route: "/oreta/hygiene", outlet: "oreta-world" },
+  // Oreta World sheets
+  { key: "oretaHygiene", label: "Shop Cleaning (4 Shifts)", icon: "🧹", route: "/oreta/shop-cleaning", outlet: "oreta-world" },
+  { key: "oretaEquipment", label: "Equipment Cleaning", icon: "⚙️", route: "/oreta/equipment", outlet: "oreta-world" },
+  { key: "oretaFridge", label: "Fridge & Display Temp", icon: "🧊", route: "/oreta/fridge", outlet: "oreta-world" },
+  { key: "oretaGlass", label: "Glass Report", icon: "🪟", route: "/oreta/glass", outlet: "oreta-world" },
+  { key: "oretaMonthly", label: "Monthly Maintenance", icon: "🗓️", route: "/oreta/monthly", outlet: "oreta-world" },
 ];
 
 type SheetEntry = {
   id: string;
   date: string;
+  month?: string;
   submittedBy: { name: string };
   supervisorName?: string;
   supervisedBy?: string;
@@ -52,7 +58,15 @@ export default function ReportsClient({ data }: Props) {
     for (const sh of SHEETS) {
       const entries: SheetEntry[] = data[sh.key] || [];
       for (const e of entries) {
-        rows.push({ ...e, sheetKey: sh.key, sheetLabel: sh.label, sheetIcon: sh.icon, outlet: sh.outlet });
+        const effectiveDate = e.date || e.month || "";
+        rows.push({
+          ...e,
+          date: effectiveDate,
+          sheetKey: sh.key,
+          sheetLabel: sh.label,
+          sheetIcon: sh.icon,
+          outlet: sh.outlet,
+        });
       }
     }
     return rows;

@@ -12,17 +12,33 @@ export default async function AdminReportsPage() {
   await ensureDbSchema();
 
   // Pull last 60 days of all entries across all outlets safely
-  const [hygiene, glass, fridge, kitchen, production, puffRoom, cakeRoom, oretaHygiene] =
-    await Promise.all([
-      prisma.hygieneEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }).catch(() => []),
-      prisma.glassEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }).catch(() => []),
-      prisma.fridgeEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }).catch(() => []),
-      prisma.kitchenEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }).catch(() => []),
-      prisma.productionEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }).catch(() => []),
-      prisma.puffRoomEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }).catch(() => []),
-      prisma.cakeRoomEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }).catch(() => []),
-      prisma.oretaHygieneEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }).catch(() => []),
-    ]);
+  const [
+    hygiene,
+    glass,
+    fridge,
+    kitchen,
+    production,
+    puffRoom,
+    cakeRoom,
+    oretaHygiene,
+    oretaEquipment,
+    oretaFridge,
+    oretaGlass,
+    oretaMonthly,
+  ] = await Promise.all([
+    prisma.hygieneEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }).catch(() => []),
+    prisma.glassEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }).catch(() => []),
+    prisma.fridgeEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }).catch(() => []),
+    prisma.kitchenEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }).catch(() => []),
+    prisma.productionEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }).catch(() => []),
+    prisma.puffRoomEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }).catch(() => []),
+    prisma.cakeRoomEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }).catch(() => []),
+    prisma.oretaHygieneEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }).catch(() => []),
+    prisma.oretaEquipmentEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }).catch(() => []),
+    prisma.oretaFridgeEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }).catch(() => []),
+    prisma.oretaGlassEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }).catch(() => []),
+    prisma.oretaMonthlyEntry.findMany({ orderBy: { month: "desc" }, take: 24, include: { submittedBy: { select: { name: true } } } }).catch(() => []),
+  ]);
 
   return (
     <ReportsClient
@@ -35,6 +51,10 @@ export default async function AdminReportsPage() {
         puffRoom: JSON.parse(JSON.stringify(puffRoom)),
         cakeRoom: JSON.parse(JSON.stringify(cakeRoom)),
         oretaHygiene: JSON.parse(JSON.stringify(oretaHygiene)),
+        oretaEquipment: JSON.parse(JSON.stringify(oretaEquipment)),
+        oretaFridge: JSON.parse(JSON.stringify(oretaFridge)),
+        oretaGlass: JSON.parse(JSON.stringify(oretaGlass)),
+        oretaMonthly: JSON.parse(JSON.stringify(oretaMonthly)),
       }}
     />
   );

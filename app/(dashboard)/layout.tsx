@@ -57,7 +57,20 @@ async function getSheetStatuses(userId: string, role: string, today: string) {
           submitted = !!(await prisma.cakeRoomEntry.findFirst({ where: { date: today } }));
           break;
         case "ORETA_HYGIENE":
+        case "ORETA_SHOP_CLEANING":
           submitted = !!(await prisma.oretaHygieneEntry.findFirst({ where: { date: today } }));
+          break;
+        case "ORETA_EQUIPMENT":
+          submitted = !!(await prisma.oretaEquipmentEntry.findFirst({ where: { date: today } }));
+          break;
+        case "ORETA_FRIDGE":
+          submitted = !!(await prisma.oretaFridgeEntry.findFirst({ where: { date: today } }));
+          break;
+        case "ORETA_GLASS":
+          submitted = !!(await prisma.oretaGlassEntry.findFirst({ where: { date: today } }));
+          break;
+        case "ORETA_MONTHLY":
+          submitted = !!(await prisma.oretaMonthlyEntry.findFirst({ where: { month: today.slice(0, 7) } }));
           break;
       }
     } catch (e) {

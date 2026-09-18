@@ -147,6 +147,63 @@ export async function GET() {
       );
     `);
 
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "OretaEquipmentEntry" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "date" TEXT NOT NULL,
+        "submittedById" TEXT NOT NULL REFERENCES "User"("id"),
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "equipmentChecks" TEXT NOT NULL,
+        "supervisorName" TEXT NOT NULL DEFAULT '',
+        "comments" TEXT NOT NULL DEFAULT '',
+        "correctiveAction" TEXT NOT NULL DEFAULT ''
+      );
+    `);
+
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "OretaFridgeEntry" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "date" TEXT NOT NULL,
+        "submittedById" TEXT NOT NULL REFERENCES "User"("id"),
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "fridgeChecks" TEXT NOT NULL,
+        "supervisorName" TEXT NOT NULL DEFAULT '',
+        "hygiene" TEXT NOT NULL DEFAULT 'Good',
+        "comments" TEXT NOT NULL DEFAULT '',
+        "correctiveAction" TEXT NOT NULL DEFAULT ''
+      );
+    `);
+
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "OretaGlassEntry" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "date" TEXT NOT NULL,
+        "submittedById" TEXT NOT NULL REFERENCES "User"("id"),
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "glassChecks" TEXT NOT NULL,
+        "supervisorName" TEXT NOT NULL DEFAULT '',
+        "comments" TEXT NOT NULL DEFAULT '',
+        "correctiveAction" TEXT NOT NULL DEFAULT ''
+      );
+    `);
+
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "OretaMonthlyEntry" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "month" TEXT NOT NULL,
+        "submittedById" TEXT NOT NULL REFERENCES "User"("id"),
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "monthlyChecks" TEXT NOT NULL,
+        "supervisorName" TEXT NOT NULL DEFAULT '',
+        "comments" TEXT NOT NULL DEFAULT '',
+        "correctiveAction" TEXT NOT NULL DEFAULT ''
+      );
+    `);
+
     // 2. Always ensure admin and staff exist
     const defaultPassword = await bcrypt.hash("Pnr@123", 12);
     const adminPassword = await bcrypt.hash("Admin@123", 12);
@@ -169,6 +226,15 @@ export async function GET() {
       create: { name: "Sandeep Gargate", email: "sandeep@pnr.com", passwordHash: defaultPassword, role: "ADMIN" },
     });
 
+    const oretaSheets = [
+      "ORETA_HYGIENE",
+      "ORETA_SHOP_CLEANING",
+      "ORETA_EQUIPMENT",
+      "ORETA_FRIDGE",
+      "ORETA_GLASS",
+      "ORETA_MONTHLY",
+    ];
+
     const staffList = [
       { name: "Shridhar Jadhav", email: "shridhar@pnr.com", sheets: ["HYGIENE_REPORT"] },
       { name: "Pravin Jadhav", email: "pravin@pnr.com", sheets: ["HYGIENE_REPORT", "PRODUCTION", "KITCHEN"] },
@@ -180,10 +246,10 @@ export async function GET() {
       { name: "Meraj Khan", email: "meraj@pnr.com", sheets: ["CAKE_ROOM"] },
       { name: "Jaseen Siddique", email: "jaseen@pnr.com", sheets: ["CAKE_ROOM"] },
       { name: "Nadeem Faruqi", email: "nadeem@pnr.com", sheets: ["CAKE_ROOM"] },
-      { name: "Rameshwar", email: "rameshwar@pnr.com", sheets: ["ORETA_HYGIENE"] },
-      { name: "Bharti", email: "bharti@pnr.com", sheets: ["ORETA_HYGIENE"] },
-      { name: "Mangla", email: "mangla@pnr.com", sheets: ["ORETA_HYGIENE"] },
-      { name: "Arzaaan", email: "arzaaan@pnr.com", sheets: ["ORETA_HYGIENE"] },
+      { name: "Rameshwar", email: "rameshwar@pnr.com", sheets: oretaSheets },
+      { name: "Bharti", email: "bharti@pnr.com", sheets: oretaSheets },
+      { name: "Mangla", email: "mangla@pnr.com", sheets: oretaSheets },
+      { name: "Arzaaan", email: "arzaaan@pnr.com", sheets: oretaSheets },
     ];
 
     for (const s of staffList) {

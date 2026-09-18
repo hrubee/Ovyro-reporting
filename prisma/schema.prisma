@@ -27,8 +27,12 @@ model User {
   kitchenEntries    KitchenEntry[]
   productionEntries ProductionEntry[]
   puffRoomEntries   PuffRoomEntry[]
-  cakeRoomEntries   CakeRoomEntry[]
-  oretaHygieneEntries OretaHygieneEntry[]
+  cakeRoomEntries       CakeRoomEntry[]
+  oretaHygieneEntries   OretaHygieneEntry[]
+  oretaEquipmentEntries OretaEquipmentEntry[]
+  oretaFridgeEntries    OretaFridgeEntry[]
+  oretaGlassEntries     OretaGlassEntry[]
+  oretaMonthlyEntries   OretaMonthlyEntry[]
 }
 
 model SheetAccess {
@@ -192,4 +196,80 @@ model OretaHygieneEntry {
 
   @@index([date])
 }
+
+// ─── ORETA WORLD EQUIPMENT CLEANING ───────────────────────────────────────────
+model OretaEquipmentEntry {
+  id               String   @id @default(cuid())
+  date             String
+  submittedById    String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  equipmentChecks  String   // JSON array of 41 equipment checks (status, time, cleanedBy, checkedBy)
+  supervisorName   String   @default("")
+  comments         String   @default("")
+  correctiveAction String   @default("")
+
+  submittedBy User @relation(fields: [submittedById], references: [id])
+
+  @@index([date])
+}
+
+// ─── ORETA WORLD FRIDGE & TEMPERATURE REPORT ──────────────────────────────────
+model OretaFridgeEntry {
+  id               String   @id @default(cuid())
+  date             String
+  supervisedBy     String   @default("")
+  submittedById    String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  fridgeChecks     String   // JSON array of 7 fridge/freezer & cake display units
+  hygiene          String   @default("")
+  comments         String   @default("")
+  correctiveAction String   @default("")
+
+  submittedBy User @relation(fields: [submittedById], references: [id])
+
+  @@index([date])
+}
+
+// ─── ORETA WORLD GLASS REPORT ─────────────────────────────────────────────────
+model OretaGlassEntry {
+  id               String   @id @default(cuid())
+  date             String
+  submittedById    String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  locationChecks   String   // JSON array of 6 glass panels (Ground Floor 1-4, Mezzanine 1-2)
+  supervisorName   String   @default("")
+  comments         String   @default("")
+  correctiveAction String   @default("")
+
+  submittedBy User @relation(fields: [submittedById], references: [id])
+
+  @@index([date])
+}
+
+// ─── ORETA WORLD MONTHLY CLEANING & MAINTENANCE ───────────────────────────────
+model OretaMonthlyEntry {
+  id               String   @id @default(cuid())
+  month            String   // YYYY-MM
+  date             String
+  submittedById    String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  taskChecks       String   // JSON array of 6 monthly maintenance tasks
+  supervisorName   String   @default("")
+  comments         String   @default("")
+  correctiveAction String   @default("")
+
+  submittedBy User @relation(fields: [submittedById], references: [id])
+
+  @@index([month])
+  @@index([date])
+}
+
 

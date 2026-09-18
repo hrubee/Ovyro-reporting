@@ -10,6 +10,11 @@ export type SheetId =
   | "PRODUCTION"
   | "PUFF_ROOM"
   | "CAKE_ROOM"
+  | "ORETA_SHOP_CLEANING"
+  | "ORETA_EQUIPMENT"
+  | "ORETA_FRIDGE"
+  | "ORETA_GLASS"
+  | "ORETA_MONTHLY"
   | "ORETA_HYGIENE";
 
 export const SHEET_LABELS: Record<SheetId, string> = {
@@ -20,7 +25,12 @@ export const SHEET_LABELS: Record<SheetId, string> = {
   PRODUCTION: "Production",
   PUFF_ROOM: "Puff Room",
   CAKE_ROOM: "Cake Room",
-  ORETA_HYGIENE: "Hygiene & Cleaning SOP",
+  ORETA_SHOP_CLEANING: "Shop Cleaning (4 Shifts)",
+  ORETA_EQUIPMENT: "Equipment Cleaning",
+  ORETA_FRIDGE: "Fridge & Display Temp",
+  ORETA_GLASS: "Glass Report",
+  ORETA_MONTHLY: "Monthly Maintenance",
+  ORETA_HYGIENE: "Shop Cleaning (4 Shifts)",
 };
 
 export const SHEET_ROUTES: Record<SheetId, string> = {
@@ -31,7 +41,12 @@ export const SHEET_ROUTES: Record<SheetId, string> = {
   PRODUCTION: "/production",
   PUFF_ROOM: "/puff-room",
   CAKE_ROOM: "/cake-room",
-  ORETA_HYGIENE: "/oreta/hygiene",
+  ORETA_SHOP_CLEANING: "/oreta/shop-cleaning",
+  ORETA_EQUIPMENT: "/oreta/equipment",
+  ORETA_FRIDGE: "/oreta/fridge",
+  ORETA_GLASS: "/oreta/glass",
+  ORETA_MONTHLY: "/oreta/monthly",
+  ORETA_HYGIENE: "/oreta/shop-cleaning",
 };
 
 export const SUPERVISORS = [
@@ -49,6 +64,11 @@ export const SHEET_STAFF: Record<SheetId, string[]> = {
   PRODUCTION: ["Sagar Yadav", "Pravin Jadhav", "Mavshi"],
   PUFF_ROOM: ["Dilip", "Sandeep Gargate"],
   CAKE_ROOM: ["Meraj Khan", "Jaseen Siddique", "Nadeem Faruqi"],
+  ORETA_SHOP_CLEANING: ["Rameshwar", "Bharti", "Mangla", "Arzaaan", "New Staff", "Admin"],
+  ORETA_EQUIPMENT: ["Rameshwar", "Bharti", "Mangla", "Arzaaan", "New Staff", "Admin"],
+  ORETA_FRIDGE: ["Rameshwar", "Bharti", "Mangla", "Arzaaan", "Admin"],
+  ORETA_GLASS: ["Mangla", "Bharti", "Rameshwar", "Admin"],
+  ORETA_MONTHLY: ["Mangla", "Rameshwar", "Bharti", "Arzaaan", "Admin"],
   ORETA_HYGIENE: ["Rameshwar", "Bharti", "Mangla", "Arzaaan", "New Staff", "Admin"],
 };
 
@@ -86,8 +106,13 @@ export async function hasSheetAccess(
   role: string
 ): Promise<boolean> {
   if (role === "ADMIN") return true;
-  const access = await prisma.sheetAccess.findUnique({
-    where: { userId_sheet: { userId, sheet } },
+  // Handle alias
+  const normalizedSheet = sheet === "ORETA_HYGIENE" ? "ORETA_SHOP_CLEANING" : sheet;
+  const access = await prisma.sheetAccess.findFirst({
+    where: {
+      userId,
+      sheet: { in: [sheet, normalizedSheet, "ORETA_HYGIENE", "ORETA_SHOP_CLEANING"] },
+    },
   });
   return !!access;
 }

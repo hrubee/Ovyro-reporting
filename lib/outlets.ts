@@ -37,11 +37,39 @@ export const OUTLETS: OutletConfig[] = [
     tagline: "Oreta World Outlet",
     sheets: [
       {
-        id: "ORETA_HYGIENE",
-        label: "Hygiene & Cleaning SOP",
-        icon: "✨",
-        route: "/oreta/hygiene",
-        description: "4-Shift Daily Hygiene Checklist",
+        id: "ORETA_SHOP_CLEANING",
+        label: "Shop Cleaning (4 Shifts)",
+        icon: "🧹",
+        route: "/oreta/shop-cleaning",
+        description: "4-Shift Floor & Area Hygiene Checklist",
+      },
+      {
+        id: "ORETA_EQUIPMENT",
+        label: "Equipment Cleaning",
+        icon: "⚙️",
+        route: "/oreta/equipment",
+        description: "Daily Kitchen & Cafe Equipment Sanitation Log",
+      },
+      {
+        id: "ORETA_FRIDGE",
+        label: "Fridge & Display Temp",
+        icon: "🧊",
+        route: "/oreta/fridge",
+        description: "Kitchen Units & Cake Display Temperature Log",
+      },
+      {
+        id: "ORETA_GLASS",
+        label: "Glass Report",
+        icon: "🪟",
+        route: "/oreta/glass",
+        description: "Ground Floor & Mezzanine Glass Inspection",
+      },
+      {
+        id: "ORETA_MONTHLY",
+        label: "Monthly Maintenance",
+        icon: "🗓️",
+        route: "/oreta/monthly",
+        description: "Shutters, AC & Generator Deep Cleaning",
       },
     ],
   },
@@ -61,7 +89,7 @@ export function getOutletByRoute(pathname: string): OutletConfig {
   return DEFAULT_OUTLET;
 }
 
-// ─── Oreta World Hygiene SOP Template ─────────────────────────────────────────
+// ─── 1. Oreta Shop Cleaning (4 Shifts) ────────────────────────────────────────
 export interface OretaAreaDefinition {
   id: number;
   area: string;
@@ -71,79 +99,109 @@ export interface OretaAreaDefinition {
 }
 
 export const ORETA_HYGIENE_AREAS: OretaAreaDefinition[] = [
-  {
-    id: 1,
-    area: "KITCHEN",
-    assignedStaff: ["Rameshwar", "Bharti"],
-    defaultStaff: "Rameshwar",
-  },
-  {
-    id: 2,
-    area: "WASH ROOM",
-    assignedStaff: ["Mangla", "Bharti"],
-    defaultStaff: "Mangla",
-    morningDisabled: true,
-  },
-  {
-    id: 3,
-    area: "OUTDOOR CLEANING",
-    assignedStaff: ["Mangla", "Bharti"],
-    defaultStaff: "Mangla",
-  },
-  {
-    id: 4,
-    area: "INSIDE TOP / GROUND CLEANING",
-    assignedStaff: ["Mangla", "Bharti"],
-    defaultStaff: "Mangla",
-  },
-  {
-    id: 5,
-    area: "CASH COUNTER",
-    assignedStaff: ["Arzaaan", "New Staff"],
-    defaultStaff: "Arzaaan",
-  },
-  {
-    id: 6,
-    area: "DISPLAY COUNTERS",
-    assignedStaff: ["Arzaaan", "New Staff"],
-    defaultStaff: "Arzaaan",
-  },
-  {
-    id: 7,
-    area: "FREEZER",
-    assignedStaff: ["Arzaaan", "New Staff"],
-    defaultStaff: "Arzaaan",
-  },
-  {
-    id: 8,
-    area: "RACKS",
-    assignedStaff: ["Arzaaan", "New Staff"],
-    defaultStaff: "Arzaaan",
-  },
-  {
-    id: 9,
-    area: "STORE",
-    assignedStaff: ["Arzaaan", "New Staff"],
-    defaultStaff: "Arzaaan",
-  },
-  {
-    id: 10,
-    area: "DUSTING",
-    assignedStaff: ["Bharti", "Mangla"],
-    defaultStaff: "Bharti",
-  },
-  {
-    id: 11,
-    area: "TABLES / CHAIRS",
-    assignedStaff: ["Bharti", "Rameshwar"],
-    defaultStaff: "Bharti",
-  },
-  {
-    id: 12,
-    area: "WASHING VESSELS",
-    assignedStaff: ["Bharti", "Rameshwar"],
-    defaultStaff: "Bharti",
-  },
+  { id: 1, area: "KITCHEN", assignedStaff: ["Rameshwar", "Bharti"], defaultStaff: "Rameshwar" },
+  { id: 2, area: "WASH ROOM", assignedStaff: ["Mangla", "Bharti"], defaultStaff: "Mangla", morningDisabled: true },
+  { id: 3, area: "OUTDOOR CLEANING", assignedStaff: ["Mangla", "Bharti"], defaultStaff: "Mangla" },
+  { id: 4, area: "INSIDE TOP / GROUND CLEANING", assignedStaff: ["Mangla", "Bharti"], defaultStaff: "Mangla" },
+  { id: 5, area: "CASH COUNTER", assignedStaff: ["Arzaaan", "New Staff"], defaultStaff: "Arzaaan" },
+  { id: 6, area: "DISPLAY COUNTERS", assignedStaff: ["Arzaaan", "New Staff"], defaultStaff: "Arzaaan" },
+  { id: 7, area: "FREEZER", assignedStaff: ["Arzaaan", "New Staff"], defaultStaff: "Arzaaan" },
+  { id: 8, area: "RACKS", assignedStaff: ["Arzaaan", "New Staff"], defaultStaff: "Arzaaan" },
+  { id: 9, area: "STORE", assignedStaff: ["Arzaaan", "New Staff"], defaultStaff: "Arzaaan" },
+  { id: 10, area: "DUSTING", assignedStaff: ["Bharti", "Mangla"], defaultStaff: "Bharti" },
+  { id: 11, area: "TABLES / CHAIRS", assignedStaff: ["Bharti", "Rameshwar"], defaultStaff: "Bharti" },
+  { id: 12, area: "WASHING VESSELS", assignedStaff: ["Bharti", "Rameshwar"], defaultStaff: "Bharti" },
+];
+
+// ─── 2. Oreta Equipment Cleaning (41 items) ──────────────────────────────────
+export const ORETA_EQUIPMENT_ITEMS = [
+  // Kitchen & Cooking
+  { id: 1, name: "Oven", category: "Kitchen & Cooking", defaultCleanedBy: "Rameshwar" },
+  { id: 2, name: "Microwave", category: "Kitchen & Cooking", defaultCleanedBy: "Rameshwar" },
+  { id: 3, name: "Gas range", category: "Kitchen & Cooking", defaultCleanedBy: "Rameshwar" },
+  { id: 4, name: "Oil fryer", category: "Kitchen & Cooking", defaultCleanedBy: "Rameshwar" },
+  { id: 5, name: "Table 1", category: "Kitchen & Cooking", defaultCleanedBy: "Bharti" },
+  { id: 6, name: "Table 2", category: "Kitchen & Cooking", defaultCleanedBy: "Bharti" },
+  { id: 7, name: "Table 3", category: "Kitchen & Cooking", defaultCleanedBy: "Bharti" },
+  { id: 8, name: "Bar counter", category: "Kitchen & Cooking", defaultCleanedBy: "Bharti" },
+  { id: 9, name: "Kitchen Rack", category: "Kitchen & Cooking", defaultCleanedBy: "Rameshwar" },
+  { id: 10, name: "Wash Sink", category: "Kitchen & Cooking", defaultCleanedBy: "Bharti" },
+  { id: 11, name: "Chimney", category: "Kitchen & Cooking", defaultCleanedBy: "Rameshwar" },
+  { id: 12, name: "Griller 1", category: "Kitchen & Cooking", defaultCleanedBy: "Rameshwar" },
+  { id: 13, name: "Griller 2", category: "Kitchen & Cooking", defaultCleanedBy: "Rameshwar" },
+  // Beverage & Cold Storage
+  { id: 14, name: "Iced machine", category: "Beverage & Refrigeration", defaultCleanedBy: "Arzaaan" },
+  { id: 15, name: "Coffee machine 1", category: "Beverage & Refrigeration", defaultCleanedBy: "Arzaaan" },
+  { id: 16, name: "Coffee machine 2", category: "Beverage & Refrigeration", defaultCleanedBy: "Arzaaan" },
+  { id: 17, name: "Fridge 1", category: "Beverage & Refrigeration", defaultCleanedBy: "Rameshwar" },
+  { id: 18, name: "Fridge 2", category: "Beverage & Refrigeration", defaultCleanedBy: "Rameshwar" },
+  { id: 19, name: "Fridge 3", category: "Beverage & Refrigeration", defaultCleanedBy: "Rameshwar" },
+  { id: 20, name: "Freezer 1", category: "Beverage & Refrigeration", defaultCleanedBy: "Rameshwar" },
+  { id: 21, name: "Freezer 2", category: "Beverage & Refrigeration", defaultCleanedBy: "Rameshwar" },
+  // Containers & Prep
+  { id: 22, name: "Food containers", category: "Containers & Prep", defaultCleanedBy: "Bharti" },
+  { id: 23, name: "Sauce containers", category: "Containers & Prep", defaultCleanedBy: "Bharti" },
+  { id: 24, name: "Spice containers", category: "Containers & Prep", defaultCleanedBy: "Bharti" },
+  { id: 25, name: "Weighing Scale 1", category: "Containers & Prep", defaultCleanedBy: "Arzaaan" },
+  { id: 26, name: "Weighing Scale 2", category: "Containers & Prep", defaultCleanedBy: "Arzaaan" },
+  { id: 27, name: "Wet and Dry Dustbins", category: "Containers & Prep", defaultCleanedBy: "Mangla" },
+  // Display & Retail
+  { id: 28, name: "Cake counter 1", category: "Display & Retail", defaultCleanedBy: "Arzaaan" },
+  { id: 29, name: "Cake counter 2", category: "Display & Retail", defaultCleanedBy: "Arzaaan" },
+  { id: 30, name: "Cake counter 3", category: "Display & Retail", defaultCleanedBy: "Arzaaan" },
+  { id: 31, name: "Ice cream counter", category: "Display & Retail", defaultCleanedBy: "Arzaaan" },
+  { id: 32, name: "Food rack", category: "Display & Retail", defaultCleanedBy: "Arzaaan" },
+  { id: 33, name: "Store rack", category: "Display & Retail", defaultCleanedBy: "Arzaaan" },
+  { id: 34, name: "Store room", category: "Display & Retail", defaultCleanedBy: "Arzaaan" },
+  { id: 35, name: "Cabinet cleaning", category: "Display & Retail", defaultCleanedBy: "Mangla" },
+  { id: 36, name: "Cash Counter", category: "Display & Retail", defaultCleanedBy: "Arzaaan" },
+  { id: 37, name: "Gods Altar", category: "Display & Retail", defaultCleanedBy: "Bharti" },
+  // Facility & Outdoor
+  { id: 38, name: "Pest control", category: "Facility & Environment", defaultCleanedBy: "Mangla" },
+  { id: 39, name: "Outdoor sitting area", category: "Facility & Environment", defaultCleanedBy: "Mangla" },
+  { id: 40, name: "Web Cleaning", category: "Facility & Environment", defaultCleanedBy: "Mangla" },
+  { id: 41, name: "Signage board", category: "Facility & Environment", defaultCleanedBy: "Mangla" },
+];
+
+// ─── 3. Oreta Fridge & Temperature Units ──────────────────────────────────────
+export interface OretaFridgeItem {
+  id: number;
+  section: "Kitchen" | "Cake Display";
+  productName: string;
+  machineNumber: string;
+  referenceTemp: string;
+}
+
+export const ORETA_FRIDGE_ITEMS: OretaFridgeItem[] = [
+  // Kitchen Group
+  { id: 1, section: "Kitchen", productName: "FRIDGE UNDER TABLE", machineNumber: "1", referenceTemp: "+3 to +8°C" },
+  { id: 2, section: "Kitchen", productName: "FRIDGE 1", machineNumber: "2", referenceTemp: "+3 to +8°C" },
+  { id: 3, section: "Kitchen", productName: "FRIDGE 2", machineNumber: "3", referenceTemp: "+3 to +8°C" },
+  { id: 4, section: "Kitchen", productName: "FREEZER 1", machineNumber: "1", referenceTemp: "-18 to -15°C" },
+  { id: 5, section: "Kitchen", productName: "FREEZER 2", machineNumber: "2", referenceTemp: "-18 to -15°C" },
+  // Cake Display Group (Confirmed Reference: +2 to +10°C)
+  { id: 6, section: "Cake Display", productName: "Cake display counter 1", machineNumber: "1", referenceTemp: "+2 to +10°C" },
+  { id: 7, section: "Cake Display", productName: "Cake display counter 2", machineNumber: "2", referenceTemp: "+2 to +10°C" },
+];
+
+// ─── 4. Oreta Glass Report (Ground & Mezzanine) ───────────────────────────────
+export const ORETA_GLASS_ITEMS = [
+  { id: 1, floor: "Ground Floor", location: "Glass Ground floor 1", defaultCleanedBy: "Mangla" },
+  { id: 2, floor: "Ground Floor", location: "Glass Ground floor 2", defaultCleanedBy: "Mangla" },
+  { id: 3, floor: "Ground Floor", location: "Glass Ground floor 3", defaultCleanedBy: "Mangla" },
+  { id: 4, floor: "Ground Floor", location: "Glass Ground floor 4", defaultCleanedBy: "Mangla" },
+  { id: 5, floor: "Mezzanine Floor", location: "Mezzanine floor 1", defaultCleanedBy: "Bharti" },
+  { id: 6, floor: "Mezzanine Floor", location: "Mezzanine floor 2", defaultCleanedBy: "Bharti" },
+];
+
+// ─── 5. Oreta Monthly Maintenance ────────────────────────────────────────────
+export const ORETA_MONTHLY_ITEMS = [
+  { id: 1, task: "Shutter", category: "Physical Security", defaultCleanedBy: "Mangla" },
+  { id: 2, task: "Shutter Locks", category: "Physical Security", defaultCleanedBy: "Mangla" },
+  { id: 3, task: "Generator area", category: "Electrical & Power", defaultCleanedBy: "Rameshwar" },
+  { id: 4, task: "Generator maintenance", category: "Electrical & Power", defaultCleanedBy: "Technician / Rameshwar" },
+  { id: 5, task: "Air condition maintenance", category: "HVAC & Climate", defaultCleanedBy: "AC Technician" },
+  { id: 6, task: "Fridge maintenance", category: "Refrigeration", defaultCleanedBy: "Chiller Technician" },
 ];
 
 export const ORETA_STAFF = [

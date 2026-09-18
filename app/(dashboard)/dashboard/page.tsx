@@ -14,24 +14,59 @@ const SHEET_ICONS: Record<SheetId, string> = {
   PRODUCTION: "🏭",
   PUFF_ROOM: "🥐",
   CAKE_ROOM: "🎂",
-  ORETA_HYGIENE: "✨",
+  ORETA_HYGIENE: "🧹",
+  ORETA_SHOP_CLEANING: "🧹",
+  ORETA_EQUIPMENT: "⚙️",
+  ORETA_FRIDGE: "🧊",
+  ORETA_GLASS: "🪟",
+  ORETA_MONTHLY: "🗓️",
 };
 
 async function getTodayStatus(today: string) {
   await ensureDbSchema();
-  const [hygiene, glass, fridge, kitchen, production, puffRoom, cakeRoom, oretaHygiene] =
-    await Promise.all([
-      prisma.hygieneEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }).catch(() => []),
-      prisma.glassEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }).catch(() => []),
-      prisma.fridgeEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }).catch(() => []),
-      prisma.kitchenEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }).catch(() => []),
-      prisma.productionEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }).catch(() => []),
-      prisma.puffRoomEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }).catch(() => []),
-      prisma.cakeRoomEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }).catch(() => []),
-      prisma.oretaHygieneEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }).catch(() => []),
-    ]);
+  const currentMonth = today.slice(0, 7);
+  const [
+    hygiene,
+    glass,
+    fridge,
+    kitchen,
+    production,
+    puffRoom,
+    cakeRoom,
+    oretaShopCleaning,
+    oretaEquipment,
+    oretaFridge,
+    oretaGlass,
+    oretaMonthly,
+  ] = await Promise.all([
+    prisma.hygieneEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }).catch(() => []),
+    prisma.glassEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }).catch(() => []),
+    prisma.fridgeEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }).catch(() => []),
+    prisma.kitchenEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }).catch(() => []),
+    prisma.productionEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }).catch(() => []),
+    prisma.puffRoomEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }).catch(() => []),
+    prisma.cakeRoomEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }).catch(() => []),
+    prisma.oretaHygieneEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }).catch(() => []),
+    prisma.oretaEquipmentEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }).catch(() => []),
+    prisma.oretaFridgeEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }).catch(() => []),
+    prisma.oretaGlassEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }).catch(() => []),
+    prisma.oretaMonthlyEntry.findMany({ where: { month: currentMonth }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }).catch(() => []),
+  ]);
 
-  return { hygiene, glass, fridge, kitchen, production, puffRoom, cakeRoom, oretaHygiene };
+  return {
+    hygiene,
+    glass,
+    fridge,
+    kitchen,
+    production,
+    puffRoom,
+    cakeRoom,
+    oretaShopCleaning,
+    oretaEquipment,
+    oretaFridge,
+    oretaGlass,
+    oretaMonthly,
+  };
 }
 
 interface PageProps {
@@ -60,7 +95,12 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     PRODUCTION: statuses.production,
     PUFF_ROOM: statuses.puffRoom,
     CAKE_ROOM: statuses.cakeRoom,
-    ORETA_HYGIENE: statuses.oretaHygiene,
+    ORETA_HYGIENE: statuses.oretaShopCleaning,
+    ORETA_SHOP_CLEANING: statuses.oretaShopCleaning,
+    ORETA_EQUIPMENT: statuses.oretaEquipment,
+    ORETA_FRIDGE: statuses.oretaFridge,
+    ORETA_GLASS: statuses.oretaGlass,
+    ORETA_MONTHLY: statuses.oretaMonthly,
   };
 
   // Filter sheets to only the active outlet's sheets

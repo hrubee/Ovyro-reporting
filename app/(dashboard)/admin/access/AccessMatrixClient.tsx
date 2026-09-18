@@ -9,7 +9,12 @@ const SHEETS = [
   { key: "PRODUCTION", label: "Production", icon: "🏭", outlet: "Bakery" },
   { key: "PUFF_ROOM", label: "Puff Room", icon: "🥐", outlet: "Bakery" },
   { key: "CAKE_ROOM", label: "Cake Room", icon: "🎂", outlet: "Bakery" },
-  { key: "ORETA_HYGIENE", label: "Oreta Hygiene", icon: "✨", outlet: "Oreta World" },
+  // Oreta World
+  { key: "ORETA_SHOP_CLEANING", label: "Oreta Shop Clean", icon: "🧹", outlet: "Oreta World" },
+  { key: "ORETA_EQUIPMENT", label: "Oreta Equipment", icon: "⚙️", outlet: "Oreta World" },
+  { key: "ORETA_FRIDGE", label: "Oreta Fridge", icon: "🧊", outlet: "Oreta World" },
+  { key: "ORETA_GLASS", label: "Oreta Glass", icon: "🪟", outlet: "Oreta World" },
+  { key: "ORETA_MONTHLY", label: "Oreta Monthly", icon: "🗓️", outlet: "Oreta World" },
 ];
 
 interface UserType { id: string; name: string; email: string; }
