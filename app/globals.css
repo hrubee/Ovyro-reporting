@@ -1726,11 +1726,57 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
     z-index: 2;
     box-shadow: 2px 0 5px rgba(0, 0, 0, 0.08);
   }
+
+  /* Enhanced Mobile Touch & Scroll */
+  .overflow-x-auto {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    max-width: 100%;
+    scrollbar-width: thin;
+    margin-bottom: 0.5rem;
+  }
+
+  .overflow-x-auto table {
+    min-width: 620px;
+  }
+
+  .overflow-x-auto::-webkit-scrollbar {
+    height: 4px;
+  }
+
+  .overflow-x-auto::-webkit-scrollbar-thumb {
+    background: #d6cdc1;
+    border-radius: 4px;
+  }
+
+  /* Responsive Input & Button Sizes */
+  .input-field,
+  .form-control {
+    font-size: 16px !important; /* Prevents auto-zoom in Safari iOS */
+    min-height: 42px;
+  }
+
+  .btn {
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .btn-sm {
+    min-height: 36px;
+    padding: 0.4rem 0.75rem;
+  }
+
+  .btn-xs {
+    min-height: 32px;
+    padding: 0.25rem 0.5rem;
+  }
 }
 
 @media (max-width: 480px) {
   .stats-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr !important;
   }
   
   .status-card {
@@ -1743,6 +1789,29 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   
   .history-filters input[type="date"] {
     width: 100%;
+  }
+
+  .page-container {
+    padding: 0.75rem 0.5rem 6rem 0.5rem;
+  }
+
+  .page-header h1 {
+    font-size: 1.2rem !important;
+  }
+
+  .page-header p {
+    font-size: 0.8rem !important;
+  }
+
+  /* Stacked control buttons on compact mobile */
+  .quick-action-bar,
+  .card .flex-wrap {
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+
+  .card .flex-wrap > * {
+    width: 100% !important;
   }
 }
 
