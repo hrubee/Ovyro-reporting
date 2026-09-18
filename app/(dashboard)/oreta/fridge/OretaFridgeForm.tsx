@@ -51,8 +51,8 @@ export default function OretaFridgeForm({
     productName: item.productName,
     machineNumber: item.machineNumber,
     referenceTemp: item.referenceTemp,
-    actualTempMorning: item.section === "Cake Display" ? "+5.0°C" : item.productName.includes("FREEZER") ? "-18.0°C" : "+4.0°C",
-    actualTempEvening: item.section === "Cake Display" ? "+5.5°C" : item.productName.includes("FREEZER") ? "-17.5°C" : "+4.5°C",
+    actualTempMorning: "",
+    actualTempEvening: "",
     isNA: false,
   }));
 

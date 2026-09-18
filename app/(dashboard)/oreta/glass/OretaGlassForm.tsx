@@ -49,8 +49,8 @@ export default function OretaGlassForm({
     id: item.id,
     floor: item.floor,
     location: item.location,
-    yesNo: "YES",
-    time: "10:30",
+    yesNo: "",
+    time: "",
     cleanedBy: item.defaultCleanedBy,
   }));
 
@@ -90,8 +90,8 @@ export default function OretaGlassForm({
               id: g.id || def.id,
               floor: g.floor || def.floor,
               location: g.location || def.location,
-              yesNo: g.yesNo || g.status || "YES",
-              time: g.time || "10:30",
+              yesNo: g.yesNo || g.status || "",
+              time: g.time || "",
               cleanedBy: g.cleanedBy || def.defaultCleanedBy,
             };
           })

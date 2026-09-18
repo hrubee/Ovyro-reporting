@@ -6,7 +6,7 @@ import { SUPERVISORS } from "@/lib/permissions";
 export type ShiftKey = "morning" | "afternoon" | "evening" | "night";
 
 export interface ShiftCheck {
-  status: "YES" | "NO" | "N/A";
+  status: "YES" | "NO" | "N/A" | "";
   staff: string;
   time: string;
 }
@@ -77,24 +77,24 @@ export default function OretaShopCleaningForm({
     id: item.id,
     area: item.area,
     morning: {
-      status: item.morningDisabled ? "N/A" : "YES",
+      status: item.morningDisabled ? "N/A" : "",
       staff: item.morningDisabled ? "—" : item.defaultStaff,
-      time: "09:00",
+      time: "",
     },
     afternoon: {
-      status: "YES",
+      status: "",
       staff: item.defaultStaff,
-      time: "14:00",
+      time: "",
     },
     evening: {
-      status: "YES",
+      status: "",
       staff: item.defaultStaff,
-      time: "18:30",
+      time: "",
     },
     night: {
-      status: "YES",
+      status: "",
       staff: item.defaultStaff,
-      time: "22:00",
+      time: "",
     },
   }));
 
@@ -134,10 +134,10 @@ export default function OretaShopCleaningForm({
             return {
               id: r.id || def.id,
               area: r.area || def.area,
-              morning: r.morning || { status: "YES", staff: def.defaultStaff, time: "09:00" },
-              afternoon: r.afternoon || { status: "YES", staff: def.defaultStaff, time: "14:00" },
-              evening: r.evening || { status: "YES", staff: def.defaultStaff, time: "18:30" },
-              night: r.night || { status: "YES", staff: def.defaultStaff, time: "22:00" },
+              morning: r.morning || { status: "", staff: def.defaultStaff, time: "" },
+              afternoon: r.afternoon || { status: "", staff: def.defaultStaff, time: "" },
+              evening: r.evening || { status: "", staff: def.defaultStaff, time: "" },
+              night: r.night || { status: "", staff: def.defaultStaff, time: "" },
             };
           })
         );

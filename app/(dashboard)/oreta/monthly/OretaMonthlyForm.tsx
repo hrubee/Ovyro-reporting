@@ -7,7 +7,7 @@ interface MonthlyCheck {
   id: number;
   task: string;
   category: string;
-  status: "COMPLETED" | "PENDING" | "SCHEDULED" | "N/A";
+  status: "COMPLETED" | "PENDING" | "SCHEDULED" | "N/A" | "";
   dateCompleted: string;
   assignedStaff: string;
   notes: string;
@@ -49,10 +49,10 @@ export default function OretaMonthlyForm({
     id: item.id,
     task: item.task,
     category: item.category,
-    status: "COMPLETED",
-    dateCompleted: `${currentMonth}-15`,
+    status: "",
+    dateCompleted: "",
     assignedStaff: item.defaultCleanedBy,
-    notes: "Inspected & serviced as per monthly protocol",
+    notes: "",
   }));
 
   const [todayEntries, setTodayEntries] = useState<MonthlyEntryType[]>(initialTodayEntries);
@@ -92,8 +92,8 @@ export default function OretaMonthlyForm({
               id: m.id || def.id,
               task: m.task || def.task,
               category: m.category || def.category,
-              status: m.status || "COMPLETED",
-              dateCompleted: m.dateCompleted || `${entry.month}-15`,
+              status: m.status || "",
+              dateCompleted: m.dateCompleted || "",
               assignedStaff: m.assignedStaff || def.defaultCleanedBy,
               notes: m.notes || "",
             };

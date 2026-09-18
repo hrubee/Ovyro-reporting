@@ -49,8 +49,8 @@ export default function OretaEquipmentForm({
     id: item.id,
     equipment: item.name,
     category: item.category,
-    yesNo: "YES",
-    time: "11:00",
+    yesNo: "",
+    time: "",
     name: item.defaultCleanedBy,
   }));
 
@@ -93,8 +93,8 @@ export default function OretaEquipmentForm({
             id: p.id || itemDef.id,
             equipment: p.equipment || p.name || itemDef.name,
             category: p.category || itemDef.category,
-            yesNo: p.yesNo || p.status || "YES",
-            time: p.time || "11:00",
+            yesNo: p.yesNo || p.status || "",
+            time: p.time || "",
             name: p.name || p.cleanedBy || itemDef.defaultCleanedBy,
           };
         });
