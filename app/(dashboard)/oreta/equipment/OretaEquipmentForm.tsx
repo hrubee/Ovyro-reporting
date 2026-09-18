@@ -92,7 +92,7 @@ export default function OretaEquipmentForm({
             (p: any) =>
               (p.equipment && p.equipment.toLowerCase() === itemDef.name.toLowerCase()) ||
               (p.name && p.name.toLowerCase() === itemDef.name.toLowerCase()) ||
-              (itemDef.name === "Ice tea machine" && (p.equipment === "Iced machine" || p.name === "Iced machine")) ||
+              (itemDef.name === "Iced tea machine" && (p.equipment === "Iced machine" || p.name === "Iced machine" || p.equipment === "Ice tea machine" || p.name === "Ice tea machine")) ||
               p.id === itemDef.id
           );
           return {

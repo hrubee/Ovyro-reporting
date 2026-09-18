@@ -102,7 +102,8 @@ export const ORETA_HYGIENE_AREAS: OretaAreaDefinition[] = [
   { id: 1, area: "KITCHEN", assignedStaff: ["Rameshwar", "Bharti"], defaultStaff: "Rameshwar" },
   { id: 2, area: "WASH ROOM", assignedStaff: ["Mangla", "Bharti"], defaultStaff: "Mangla", morningDisabled: true },
   { id: 3, area: "OUTDOOR CLEANING", assignedStaff: ["Mangla", "Bharti"], defaultStaff: "Mangla" },
-  { id: 4, area: "INSIDE TOP / GROUND CLEANING", assignedStaff: ["Mangla", "Bharti"], defaultStaff: "Mangla" },
+  { id: 4, area: "GROUND FLOOR", assignedStaff: ["Mangla", "Bharti"], defaultStaff: "Mangla" },
+  { id: 5, area: "MEZZANINE FLOOR", assignedStaff: ["Mangla", "Bharti"], defaultStaff: "Mangla" },
 ];
 
 // ─── 2. Oreta Equipment Cleaning (38 items) ──────────────────────────────────
@@ -122,7 +123,7 @@ export const ORETA_EQUIPMENT_ITEMS = [
   { id: 12, name: "Griller 1", category: "Kitchen & Cooking", defaultCleanedBy: "Rameshwar" },
   { id: 13, name: "Griller 2", category: "Kitchen & Cooking", defaultCleanedBy: "Rameshwar" },
   // Beverage & Cold Storage
-  { id: 14, name: "Ice tea machine", category: "Beverage & Refrigeration", defaultCleanedBy: "Arzaaan" },
+  { id: 14, name: "Iced tea machine", category: "Beverage & Refrigeration", defaultCleanedBy: "Arzaaan" },
   { id: 15, name: "Coffee machine 1", category: "Beverage & Refrigeration", defaultCleanedBy: "Arzaaan" },
   { id: 16, name: "Coffee machine 2", category: "Beverage & Refrigeration", defaultCleanedBy: "Arzaaan" },
   { id: 17, name: "Fridge 1", category: "Beverage & Refrigeration", defaultCleanedBy: "Rameshwar" },

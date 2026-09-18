@@ -132,7 +132,6 @@ export default function OretaShopCleaningForm({
           ORETA_HYGIENE_AREAS.map((def) => {
             const found = parsed.find(
               (p: any) =>
-                p.id === def.id ||
                 p.area?.trim().toUpperCase() === def.area.trim().toUpperCase()
             );
             return {
@@ -219,23 +218,42 @@ export default function OretaShopCleaningForm({
     );
   }
 
+  function setAllTime(timeStr: string, targetShift?: ShiftKey) {
+    if (!timeStr) return;
+    const shiftsToUpdate = targetShift ? [targetShift] : SHIFT_KEYS;
+    setRows((prev) =>
+      prev.map((r) => {
+        const areaDef = ORETA_HYGIENE_AREAS.find((a) => a.id === r.id);
+        const updated = { ...r };
+        shiftsToUpdate.forEach((s) => {
+          if (s === "morning" && areaDef?.morningDisabled) return;
+          updated[s] = { ...updated[s], time: timeStr };
+        });
+        return updated;
+      })
+    );
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
     setAlert(null);
+
+    const payload = {
+      id: editingId || undefined,
+      date: today,
+      day: dayName,
+      supervisorName,
+      comments,
+      correctiveAction,
+      areaChecks: JSON.stringify(rows),
+    };
+
     try {
       const res = await fetch("/api/entries/oreta-shop-cleaning", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: editingId,
-          date: today,
-          day: dayName,
-          areaChecks: rows,
-          supervisorName,
-          comments,
-          correctiveAction,
-        }),
+        body: JSON.stringify(payload),
       });
       if (res.ok) {
         const saved: EntryType = await res.json();
@@ -272,7 +290,7 @@ export default function OretaShopCleaningForm({
       <div className="page-header">
         <div className="page-header-text">
           <h1>🧹 Oreta World House Keeping</h1>
-          <p>4-Shift Daily House Keeping Checklist (4 Areas) — {todayLabel}</p>
+          <p>4-Shift Daily House Keeping Checklist ({ORETA_HYGIENE_AREAS.length} Areas) — {todayLabel}</p>
         </div>
         <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
           {!isEditing && (
