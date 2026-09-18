@@ -38,10 +38,10 @@ export const OUTLETS: OutletConfig[] = [
     sheets: [
       {
         id: "ORETA_SHOP_CLEANING",
-        label: "Shop Cleaning (4 Shifts)",
+        label: "House Keeping",
         icon: "🧹",
         route: "/oreta/shop-cleaning",
-        description: "4-Shift Floor & Area Hygiene Checklist",
+        description: "4-Shift Daily House Keeping Checklist",
       },
       {
         id: "ORETA_EQUIPMENT",
@@ -103,14 +103,6 @@ export const ORETA_HYGIENE_AREAS: OretaAreaDefinition[] = [
   { id: 2, area: "WASH ROOM", assignedStaff: ["Mangla", "Bharti"], defaultStaff: "Mangla", morningDisabled: true },
   { id: 3, area: "OUTDOOR CLEANING", assignedStaff: ["Mangla", "Bharti"], defaultStaff: "Mangla" },
   { id: 4, area: "INSIDE TOP / GROUND CLEANING", assignedStaff: ["Mangla", "Bharti"], defaultStaff: "Mangla" },
-  { id: 5, area: "CASH COUNTER", assignedStaff: ["Arzaaan", "New Staff"], defaultStaff: "Arzaaan" },
-  { id: 6, area: "DISPLAY COUNTERS", assignedStaff: ["Arzaaan", "New Staff"], defaultStaff: "Arzaaan" },
-  { id: 7, area: "FREEZER", assignedStaff: ["Arzaaan", "New Staff"], defaultStaff: "Arzaaan" },
-  { id: 8, area: "RACKS", assignedStaff: ["Arzaaan", "New Staff"], defaultStaff: "Arzaaan" },
-  { id: 9, area: "STORE", assignedStaff: ["Arzaaan", "New Staff"], defaultStaff: "Arzaaan" },
-  { id: 10, area: "DUSTING", assignedStaff: ["Bharti", "Mangla"], defaultStaff: "Bharti" },
-  { id: 11, area: "TABLES / CHAIRS", assignedStaff: ["Bharti", "Rameshwar"], defaultStaff: "Bharti" },
-  { id: 12, area: "WASHING VESSELS", assignedStaff: ["Bharti", "Rameshwar"], defaultStaff: "Bharti" },
 ];
 
 // ─── 2. Oreta Equipment Cleaning (41 items) ──────────────────────────────────

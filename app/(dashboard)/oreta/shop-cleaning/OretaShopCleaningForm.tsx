@@ -129,15 +129,35 @@ export default function OretaShopCleaningForm({
       const parsed = JSON.parse(entry.areaChecks);
       if (Array.isArray(parsed) && parsed.length > 0) {
         setRows(
-          parsed.map((r: AreaRow, idx: number) => {
-            const def = ORETA_HYGIENE_AREAS[idx] || { id: idx + 1, area: `Area ${idx + 1}`, defaultStaff: "Rameshwar" };
+          ORETA_HYGIENE_AREAS.map((def) => {
+            const found = parsed.find(
+              (p: any) =>
+                p.id === def.id ||
+                p.area?.trim().toUpperCase() === def.area.trim().toUpperCase()
+            );
             return {
-              id: r.id || def.id,
-              area: r.area || def.area,
-              morning: r.morning || { status: "", staff: def.defaultStaff, time: "" },
-              afternoon: r.afternoon || { status: "", staff: def.defaultStaff, time: "" },
-              evening: r.evening || { status: "", staff: def.defaultStaff, time: "" },
-              night: r.night || { status: "", staff: def.defaultStaff, time: "" },
+              id: def.id,
+              area: def.area,
+              morning: found?.morning || {
+                status: def.morningDisabled ? "N/A" : "",
+                staff: def.morningDisabled ? "—" : def.defaultStaff,
+                time: "",
+              },
+              afternoon: found?.afternoon || {
+                status: "",
+                staff: def.defaultStaff,
+                time: "",
+              },
+              evening: found?.evening || {
+                status: "",
+                staff: def.defaultStaff,
+                time: "",
+              },
+              night: found?.night || {
+                status: "",
+                staff: def.defaultStaff,
+                time: "",
+              },
             };
           })
         );
@@ -224,13 +244,13 @@ export default function OretaShopCleaningForm({
         if (editingId) {
           setTodayEntries((prev) => prev.map((e) => (e.id === editingId ? withSubmitter : e)));
           setHistory((prev) => prev.map((e) => (e.id === editingId ? withSubmitter : e)));
-          setAlert({ type: "success", msg: "✅ Oreta Shop Cleaning report updated!" });
+          setAlert({ type: "success", msg: "✅ Oreta House Keeping report updated!" });
         } else {
           setTodayEntries((prev) => [withSubmitter, ...prev]);
           setHistory((prev) => [withSubmitter, ...prev]);
           setAlert({
             type: "success",
-            msg: `✅ New Shop Cleaning report recorded at ${new Date(saved.createdAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}!`,
+            msg: `✅ New House Keeping report recorded at ${new Date(saved.createdAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}!`,
           });
         }
         setIsEditing(false);
@@ -251,8 +271,8 @@ export default function OretaShopCleaningForm({
     <div className="page-container fade-in">
       <div className="page-header">
         <div className="page-header-text">
-          <h1>🧹 Oreta World Shop Cleaning</h1>
-          <p>4-Shift Daily Hygiene Checklist (12 Areas) — {todayLabel}</p>
+          <h1>🧹 Oreta World House Keeping</h1>
+          <p>4-Shift Daily House Keeping Checklist (4 Areas) — {todayLabel}</p>
         </div>
         <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
           {!isEditing && (
@@ -317,7 +337,7 @@ export default function OretaShopCleaningForm({
           <div className="card" style={{ marginBottom: "1.5rem" }}>
             <div className="card-header">
               <div className="card-title">
-                {editingId ? "✏️ Edit Shop Cleaning Report" : "➕ New Shop Cleaning Submission"}
+                {editingId ? "✏️ Edit House Keeping Report" : "➕ New House Keeping Submission"}
               </div>
             </div>
 
@@ -510,7 +530,7 @@ export default function OretaShopCleaningForm({
 
             <div className="form-actions" style={{ marginTop: "1.5rem" }}>
               <button type="submit" className="btn btn-primary" disabled={saving}>
-                {saving ? "⏳ Saving..." : editingId ? "💾 Update Shop Cleaning Report" : "💾 Submit Shop Cleaning Report"}
+                {saving ? "⏳ Saving..." : editingId ? "💾 Update House Keeping Report" : "💾 Submit House Keeping Report"}
               </button>
               {todayEntries.length > 0 && (
                 <button type="button" className="btn btn-secondary" onClick={() => setIsEditing(false)}>
@@ -525,7 +545,7 @@ export default function OretaShopCleaningForm({
       {/* History Log */}
       <div className="card">
         <div className="card-header">
-          <div className="card-title">🕒 Oreta Shop Cleaning History Log</div>
+          <div className="card-title">🕒 Oreta House Keeping History Log</div>
           <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
             <label style={{ fontSize: "0.82rem", color: "var(--text-muted)" }}>Date:</label>
             <input
@@ -540,7 +560,7 @@ export default function OretaShopCleaningForm({
         {selectedDateEntries.length === 0 ? (
           <div className="empty-state">
             <div className="empty-state-icon">🧹</div>
-            <p>No shop cleaning records found for {selectedDate}.</p>
+            <p>No house keeping records found for {selectedDate}.</p>
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>

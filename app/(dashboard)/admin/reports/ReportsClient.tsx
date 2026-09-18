@@ -11,7 +11,7 @@ const SHEETS = [
   { key: "puffRoom", label: "Puff Room", icon: "🥐", route: "/puff-room", outlet: "bakery" },
   { key: "cakeRoom", label: "Cake Room", icon: "🎂", route: "/cake-room", outlet: "bakery" },
   // Oreta World sheets
-  { key: "oretaHygiene", label: "Shop Cleaning (4 Shifts)", icon: "🧹", route: "/oreta/shop-cleaning", outlet: "oreta-world" },
+  { key: "oretaHygiene", label: "House Keeping", icon: "🧹", route: "/oreta/shop-cleaning", outlet: "oreta-world" },
   { key: "oretaEquipment", label: "Equipment Cleaning", icon: "⚙️", route: "/oreta/equipment", outlet: "oreta-world" },
   { key: "oretaFridge", label: "Fridge & Display Temp", icon: "🧊", route: "/oreta/fridge", outlet: "oreta-world" },
   { key: "oretaGlass", label: "Glass Report", icon: "🪟", route: "/oreta/glass", outlet: "oreta-world" },

@@ -16,7 +16,7 @@ export default async function OretaShopCleaningPage() {
     return (
       <div className="page-container">
         <div className="error-banner">
-          ⛔ You do not have access to the Oreta World Shop Cleaning SOP sheet. Please contact an administrator.
+          ⛔ You do not have access to the Oreta World House Keeping SOP sheet. Please contact an administrator.
         </div>
       </div>
     );

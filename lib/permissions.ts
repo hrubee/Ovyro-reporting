@@ -25,12 +25,12 @@ export const SHEET_LABELS: Record<SheetId, string> = {
   PRODUCTION: "Production",
   PUFF_ROOM: "Puff Room",
   CAKE_ROOM: "Cake Room",
-  ORETA_SHOP_CLEANING: "Shop Cleaning (4 Shifts)",
+  ORETA_SHOP_CLEANING: "House Keeping",
   ORETA_EQUIPMENT: "Equipment Cleaning",
   ORETA_FRIDGE: "Fridge & Display Temp",
   ORETA_GLASS: "Glass Report",
   ORETA_MONTHLY: "Monthly Maintenance",
-  ORETA_HYGIENE: "Shop Cleaning (4 Shifts)",
+  ORETA_HYGIENE: "House Keeping",
 };
 
 export const SHEET_ROUTES: Record<SheetId, string> = {
