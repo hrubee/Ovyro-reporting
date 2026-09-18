@@ -1,36 +1,34 @@
 "use client";
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState } from "react";
 import { ORETA_MONTHLY_ITEMS, ORETA_STAFF } from "@/lib/outlets";
 import { SUPERVISORS } from "@/lib/permissions";
 
-interface MonthlyRow {
+interface MonthlyCheck {
   id: number;
   task: string;
   category: string;
   status: "COMPLETED" | "PENDING" | "SCHEDULED" | "N/A";
   dateCompleted: string;
   assignedStaff: string;
-  checkedBy: string;
   notes: string;
 }
 
-interface ExistingEntry {
+interface MonthlyEntryType {
   id: string;
   month: string;
   supervisorName: string;
+  monthlyChecks: string;
   comments: string;
   correctiveAction: string;
-  monthlyChecks: string;
-  submittedBy: { name: string; email: string };
+  submittedBy: { name: string };
   createdAt: string;
 }
 
 interface Props {
-  initialMonth: string;
-  existingEntry: ExistingEntry | null;
-  history: ExistingEntry[];
-  currentUser: { id: string; name: string; role: string };
+  currentMonth: string;
+  todayEntries: MonthlyEntryType[];
+  history: MonthlyEntryType[];
+  userName: string;
 }
 
 const SERVICE_STAFF = [
@@ -42,358 +40,417 @@ const SERVICE_STAFF = [
 ];
 
 export default function OretaMonthlyForm({
-  initialMonth,
-  existingEntry,
-  history,
-  currentUser,
+  currentMonth,
+  todayEntries: initialTodayEntries,
+  history: initialHistory,
+  userName,
 }: Props) {
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const init: MonthlyCheck[] = ORETA_MONTHLY_ITEMS.map((item) => ({
+    id: item.id,
+    task: item.task,
+    category: item.category,
+    status: "COMPLETED",
+    dateCompleted: `${currentMonth}-15`,
+    assignedStaff: item.defaultCleanedBy,
+    notes: "Inspected & serviced as per monthly protocol",
+  }));
 
-  const [month, setMonth] = useState(initialMonth);
+  const [todayEntries, setTodayEntries] = useState<MonthlyEntryType[]>(initialTodayEntries);
+  const [history, setHistory] = useState<MonthlyEntryType[]>(initialHistory);
 
-  const buildInitialRows = (): MonthlyRow[] => {
-    if (existingEntry?.monthlyChecks) {
-      try {
-        const parsed = JSON.parse(existingEntry.monthlyChecks);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      } catch {}
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(initialTodayEntries.length === 0);
+
+  const [checks, setChecks] = useState<MonthlyCheck[]>(init);
+  const [supervisorName, setSupervisorName] = useState(SUPERVISORS[0] || "Aboli Wagh");
+  const [comments, setComments] = useState("");
+  const [correctiveAction, setCorrectiveAction] = useState("");
+  const [month, setMonth] = useState(currentMonth);
+  const [saving, setSaving] = useState(false);
+  const [alert, setAlert] = useState<{ type: "success" | "error"; msg: string } | null>(null);
+  const [selectedMonth, setSelectedMonth] = useState(currentMonth);
+
+  function startNewSubmission() {
+    setEditingId(null);
+    setChecks(init);
+    setSupervisorName(SUPERVISORS[0] || "Aboli Wagh");
+    setComments("");
+    setCorrectiveAction("");
+    setIsEditing(true);
+    setAlert(null);
+  }
+
+  function startEditSubmission(entry: MonthlyEntryType) {
+    setEditingId(entry.id);
+    try {
+      const parsed = JSON.parse(entry.monthlyChecks);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        setChecks(
+          parsed.map((m: any, idx: number) => {
+            const def = ORETA_MONTHLY_ITEMS[idx] || { id: idx + 1, task: m.task || `Task ${idx + 1}`, category: "General", defaultCleanedBy: "Mangla" };
+            return {
+              id: m.id || def.id,
+              task: m.task || def.task,
+              category: m.category || def.category,
+              status: m.status || "COMPLETED",
+              dateCompleted: m.dateCompleted || `${entry.month}-15`,
+              assignedStaff: m.assignedStaff || def.defaultCleanedBy,
+              notes: m.notes || "",
+            };
+          })
+        );
+      } else {
+        setChecks(init);
+      }
+    } catch {
+      setChecks(init);
     }
+    setSupervisorName(entry.supervisorName || SUPERVISORS[0] || "Aboli Wagh");
+    setComments(entry.comments || "");
+    setCorrectiveAction(entry.correctiveAction || "");
+    setIsEditing(true);
+    setAlert(null);
+  }
 
-    return ORETA_MONTHLY_ITEMS.map((item) => ({
-      id: item.id,
-      task: item.task,
-      category: item.category,
-      status: "COMPLETED",
-      dateCompleted: `${month}-15`,
-      assignedStaff: item.defaultCleanedBy,
-      checkedBy: "Admin",
-      notes: "Inspected and serviced as per monthly schedule",
-    }));
-  };
+  function update(idx: number, field: keyof MonthlyCheck, value: string | number) {
+    const copy = [...checks];
+    copy[idx] = { ...copy[idx], [field]: value };
+    setChecks(copy);
+  }
 
-  const [rows, setRows] = useState<MonthlyRow[]>(buildInitialRows);
-  const [supervisorName, setSupervisorName] = useState(
-    existingEntry?.supervisorName || SUPERVISORS[0]
-  );
-  const [comments, setComments] = useState(existingEntry?.comments || "");
-  const [correctiveAction, setCorrectiveAction] = useState(
-    existingEntry?.correctiveAction || ""
-  );
+  function markAllCompleted() {
+    setChecks((prev) => prev.map((c) => ({ ...c, status: "COMPLETED" })));
+  }
 
-  const [saveSuccess, setSaveSuccess] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
+  function assignAllTo(name: string) {
+    if (!name) return;
+    setChecks((prev) => prev.map((c) => ({ ...c, assignedStaff: name })));
+  }
 
-  const handleMonthChange = (newMonth: string) => {
-    setMonth(newMonth);
-    router.push(`/oreta/monthly?month=${newMonth}`);
-  };
-
-  const updateRow = (id: number, field: keyof MonthlyRow, value: any) => {
-    setRows((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, [field]: value } : r))
-    );
-  };
-
-  const setAllStatus = (status: "COMPLETED" | "PENDING" | "SCHEDULED" | "N/A") => {
-    setRows((prev) =>
-      prev.map((r) => ({ ...r, status }))
-    );
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setSaveSuccess(false);
-    setErrorMsg("");
-
+    setSaving(true);
+    setAlert(null);
     try {
       const res = await fetch("/api/entries/oreta-monthly", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          id: existingEntry?.id,
+          id: editingId,
           month,
           supervisorName,
+          monthlyChecks: checks,
           comments,
           correctiveAction,
-          monthlyChecks: JSON.stringify(rows),
         }),
       });
+      if (res.ok) {
+        const saved: MonthlyEntryType = await res.json();
+        const withSubmitter = { ...saved, submittedBy: { name: userName } };
 
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to save monthly maintenance report");
+        if (editingId) {
+          setTodayEntries((prev) => prev.map((e) => (e.id === editingId ? withSubmitter : e)));
+          setHistory((prev) => prev.map((e) => (e.id === editingId ? withSubmitter : e)));
+          setAlert({ type: "success", msg: "✅ Oreta Monthly report updated!" });
+        } else {
+          setTodayEntries((prev) => [withSubmitter, ...prev]);
+          setHistory((prev) => [withSubmitter, ...prev]);
+          setAlert({
+            type: "success",
+            msg: `✅ New Monthly report saved for ${saved.month}!`,
+          });
+        }
+        setIsEditing(false);
+      } else {
+        const d = await res.json();
+        setAlert({ type: "error", msg: d.error || "Failed to save." });
       }
-
-      setSaveSuccess(true);
-      startTransition(() => {
-        router.refresh();
-      });
-    } catch (err: any) {
-      setErrorMsg(err.message || "An error occurred while saving.");
+    } catch {
+      setAlert({ type: "error", msg: "Network error. Please try again." });
     }
-  };
+    setSaving(false);
+  }
 
-  const categories = Array.from(new Set(ORETA_MONTHLY_ITEMS.map((i) => i.category)));
+  const selectedMonthEntries = history.filter((h) => h.month === selectedMonth);
 
   return (
-    <div className="space-y-6">
-      {/* Top control bar */}
-      <div className="card p-4 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <label htmlFor="month-select" className="font-semibold text-sm">
-            🗓️ Select Month:
-          </label>
-          <input
-            id="month-select"
-            type="month"
-            value={month}
-            onChange={(e) => handleMonthChange(e.target.value)}
-            className="input-field max-w-[180px]"
-          />
+    <div className="page-container fade-in">
+      <div className="page-header">
+        <div className="page-header-text">
+          <h1>🗓️ Oreta World Monthly Maintenance & Deep Clean</h1>
+          <p>Shutters, Generator, AC Servicing & Refrigeration Deep Clean — {month}</p>
         </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setAllStatus("COMPLETED")}
-            className="btn btn-secondary text-xs px-3 py-1.5"
-          >
-            ✅ Mark All Completed
-          </button>
+        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+          {!isEditing && (
+            <button className="btn btn-primary btn-sm" onClick={startNewSubmission}>
+              ➕ New Monthly Audit
+            </button>
+          )}
         </div>
       </div>
 
-      {saveSuccess && (
-        <div className="alert alert-success">
-          ✅ Oreta Monthly Maintenance log saved successfully for {month}!
+      {alert && (
+        <div className={`alert alert-${alert.type}`} style={{ marginBottom: "1rem" }}>
+          {alert.msg}
         </div>
       )}
 
-      {errorMsg && (
-        <div className="alert alert-error">
-          ❌ {errorMsg}
-        </div>
-      )}
-
-      {existingEntry && (
-        <div className="alert alert-info text-sm flex items-center justify-between">
-          <span>
-            ℹ️ Record submitted by <strong>{existingEntry.submittedBy?.name || "Admin"}</strong> on{" "}
-            {new Date(existingEntry.createdAt).toLocaleString("en-IN")}.
-          </span>
-          <span className="badge badge-submitted">Saved</span>
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {categories.map((cat) => {
-          const catRows = rows.filter((r) => r.category === cat);
-          if (catRows.length === 0) return null;
-
-          return (
-            <div key={cat} className="card overflow-hidden">
-              <div className="card-header bg-slate-50/70 dark:bg-slate-800/50 flex items-center justify-between py-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">🔧</span>
-                  <h2 className="card-title text-base">{cat}</h2>
-                </div>
-                <span className="badge badge-pending text-xs">
-                  {catRows.length} Items
-                </span>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead>
-                    <tr className="border-b bg-slate-100/40 dark:bg-slate-800/20 text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300">
-                      <th className="p-3 w-12 text-center">#</th>
-                      <th className="p-3 w-48">Task / Equipment</th>
-                      <th className="p-3 w-56 text-center">Status</th>
-                      <th className="p-3 w-36">Date Done</th>
-                      <th className="p-3 w-52">Service / Staff</th>
-                      <th className="p-3">Notes / Scope</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {catRows.map((row) => (
-                      <tr
-                        key={row.id}
-                        className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors"
-                      >
-                        <td className="p-3 text-center text-xs font-mono text-slate-400">
-                          {row.id}
-                        </td>
-                        <td className="p-3 font-semibold text-slate-800 dark:text-slate-100">
-                          {row.task}
-                        </td>
-                        <td className="p-3 text-center">
-                          <div className="inline-flex rounded-lg p-0.5 bg-slate-200/60 dark:bg-slate-700/60">
-                            {(["COMPLETED", "PENDING", "SCHEDULED", "N/A"] as const).map((st) => (
-                              <button
-                                key={st}
-                                type="button"
-                                onClick={() => updateRow(row.id, "status", st)}
-                                className={`px-2 py-1 text-xs font-bold rounded-md transition-all ${
-                                  row.status === st
-                                    ? st === "COMPLETED"
-                                      ? "bg-emerald-500 text-white shadow"
-                                      : st === "PENDING"
-                                      ? "bg-amber-500 text-white shadow"
-                                      : st === "SCHEDULED"
-                                      ? "bg-blue-500 text-white shadow"
-                                      : "bg-slate-500 text-white shadow"
-                                    : "text-slate-600 dark:text-slate-300 hover:text-slate-900"
-                                }`}
-                              >
-                                {st === "COMPLETED" ? "DONE" : st}
-                              </button>
-                            ))}
-                          </div>
-                        </td>
-                        <td className="p-3">
-                          <input
-                            type="date"
-                            value={row.dateCompleted}
-                            onChange={(e) => updateRow(row.id, "dateCompleted", e.target.value)}
-                            className="input-field text-xs py-1 px-2"
-                          />
-                        </td>
-                        <td className="p-3">
-                          <select
-                            value={row.assignedStaff}
-                            onChange={(e) => updateRow(row.id, "assignedStaff", e.target.value)}
-                            className="input-field text-xs py-1 px-2"
-                          >
-                            {SERVICE_STAFF.map((staff) => (
-                              <option key={staff} value={staff}>
-                                {staff}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-                        <td className="p-3">
-                          <input
-                            type="text"
-                            value={row.notes}
-                            onChange={(e) => updateRow(row.id, "notes", e.target.value)}
-                            className="input-field text-xs py-1 px-2"
-                            placeholder="Maintenance details / AMC notes..."
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          );
-        })}
-
-        {/* Supervisor & Comments */}
-        <div className="card p-5 space-y-4">
-          <h3 className="text-base font-semibold border-b pb-2">
-            📋 Monthly Audit & Sign-off
-          </h3>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider mb-1">
-                Inspected By Supervisor:
-              </label>
-              <select
-                value={supervisorName}
-                onChange={(e) => setSupervisorName(e.target.value)}
-                className="input-field"
-              >
-                {SUPERVISORS.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider mb-1">
-                Executive Comments / Facility State:
-              </label>
-              <textarea
-                rows={2}
-                value={comments}
-                onChange={(e) => setComments(e.target.value)}
-                placeholder="e.g., All shutters oiled, AC cooling gas checked, fridge compressors inspected."
-                className="input-field text-sm"
-              />
+      {/* CURRENT MONTH SUBMISSIONS */}
+      {!isEditing && todayEntries.length > 0 && (
+        <div className="card" style={{ marginBottom: "1.5rem" }}>
+          <div className="card-header">
+            <div className="card-title">
+              📋 Recorded Submissions for {month} ({todayEntries.length})
             </div>
           </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+            {todayEntries.map((entry, idx) => (
+              <div
+                key={entry.id}
+                style={{
+                  padding: "0.85rem 1rem",
+                  background: "var(--bg-input)",
+                  borderRadius: "8px",
+                  border: "1px solid var(--border)",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: "0.5rem",
+                }}
+              >
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: "0.9rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    <span className="badge badge-submitted">#{todayEntries.length - idx}</span>
+                    <span>Supervisor: <strong>{entry.supervisorName || "Aboli Wagh"}</strong></span>
+                  </div>
+                  <div style={{ fontSize: "0.78rem", color: "var(--text-muted)", marginTop: "2px" }}>
+                    📅 Month: {entry.month}
+                    {entry.comments && ` • "${entry.comments}"`}
+                  </div>
+                </div>
+                <button className="btn btn-secondary btn-sm" onClick={() => startEditSubmission(entry)}>
+                  ✏️ View / Edit
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider mb-1">
-              Outstanding Actions / Maintenance Scheduled for Next Month:
-            </label>
-            <textarea
-              rows={2}
-              value={correctiveAction}
-              onChange={(e) => setCorrectiveAction(e.target.value)}
-              placeholder="e.g., Schedule generator battery replacement before next cycle."
-              className="input-field text-sm"
+      {isEditing && (
+        <form onSubmit={handleSubmit}>
+          <div className="card" style={{ marginBottom: "1.5rem" }}>
+            <div className="card-header">
+              <div className="card-title">
+                {editingId ? `✏️ Edit Oreta Monthly Report (${month})` : `➕ New Monthly Log (${month})`}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <label style={{ fontSize: "0.82rem", fontWeight: 600 }}>Month:</label>
+                <input
+                  type="month"
+                  value={month}
+                  onChange={(e) => setMonth(e.target.value)}
+                  style={{ padding: "0.3rem 0.5rem", borderRadius: "6px", border: "1px solid var(--border)", fontSize: "0.85rem" }}
+                />
+              </div>
+            </div>
+
+            {/* 1-Tap Quick Action Bar */}
+            <div className="quick-action-bar">
+              <span>⚡ 1-Tap Quick Actions:</span>
+              <button type="button" className="btn btn-sm btn-secondary" onClick={markAllCompleted}>
+                ✅ Mark All COMPLETED
+              </button>
+              <div style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
+                <span style={{ fontSize: "0.72rem" }}>👤 Assign All:</span>
+                <select
+                  value=""
+                  onChange={(e) => assignAllTo(e.target.value)}
+                  style={{
+                    padding: "0.25rem 0.5rem",
+                    fontSize: "0.75rem",
+                    borderRadius: "4px",
+                    background: "var(--bg-card)",
+                    border: "1px solid var(--border)",
+                    color: "var(--text-primary)",
+                  }}
+                >
+                  <option value="" disabled>Select Staff / Agency</option>
+                  {SERVICE_STAFF.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div style={{ overflowX: "auto" }}>
+              <table className="checklist-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: "35%" }}>Maintenance Task</th>
+                    <th style={{ width: "170px" }}>Status</th>
+                    <th style={{ width: "140px" }}>Date Completed</th>
+                    <th>Staff / Agency</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {checks.map((row, idx) => (
+                    <tr key={row.id}>
+                      <td style={{ fontWeight: 600 }}>
+                        <div>
+                          <span>{row.task}</span>
+                          <span className="badge" style={{ fontSize: "0.7rem", marginLeft: "0.4rem", background: "var(--bg-primary)" }}>
+                            {row.category}
+                          </span>
+                        </div>
+                      </td>
+                      <td>
+                        <div className="touch-btn-toggle">
+                          <button
+                            type="button"
+                            className={`touch-btn-option ${row.status === "COMPLETED" ? "active-yes" : ""}`}
+                            onClick={() => update(idx, "status", "COMPLETED")}
+                          >
+                            ✅ DONE
+                          </button>
+                          <button
+                            type="button"
+                            className={`touch-btn-option ${row.status === "PENDING" ? "active-no" : ""}`}
+                            onClick={() => update(idx, "status", "PENDING")}
+                          >
+                            ⏳ PENDING
+                          </button>
+                          <button
+                            type="button"
+                            className={`touch-btn-option ${row.status === "N/A" ? "active-na" : ""}`}
+                            onClick={() => update(idx, "status", "N/A")}
+                          >
+                            ⚪ N/A
+                          </button>
+                        </div>
+                      </td>
+                      <td>
+                        <input
+                          type="date"
+                          value={row.dateCompleted}
+                          onChange={(e) => update(idx, "dateCompleted", e.target.value)}
+                          style={{ width: "100%", fontSize: "0.8rem", height: "36px" }}
+                        />
+                      </td>
+                      <td>
+                        <select
+                          value={row.assignedStaff}
+                          onChange={(e) => update(idx, "assignedStaff", e.target.value)}
+                        >
+                          {SERVICE_STAFF.map((s) => (
+                            <option key={s} value={s}>{s}</option>
+                          ))}
+                        </select>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="form-grid" style={{ marginTop: "1.25rem" }}>
+              <div className="form-group">
+                <label>Verified By Supervisor</label>
+                <select
+                  value={supervisorName}
+                  onChange={(e) => setSupervisorName(e.target.value)}
+                  style={{ fontWeight: 600, color: "var(--accent)" }}
+                >
+                  {SUPERVISORS.map((sup) => (
+                    <option key={sup} value={sup}>{sup}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Monthly Executive Comments</label>
+                <textarea
+                  value={comments}
+                  onChange={(e) => setComments(e.target.value)}
+                  placeholder="e.g. Shutters oiled, AC condenser coils descaled."
+                  rows={2}
+                />
+              </div>
+              <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+                <label>Outstanding Actions Scheduled for Next Month</label>
+                <textarea
+                  value={correctiveAction}
+                  onChange={(e) => setCorrectiveAction(e.target.value)}
+                  placeholder="e.g. Schedule generator battery replacement."
+                  rows={2}
+                />
+              </div>
+            </div>
+
+            <div className="form-actions" style={{ marginTop: "1.5rem" }}>
+              <button type="submit" className="btn btn-primary" disabled={saving}>
+                {saving ? "⏳ Saving..." : editingId ? "💾 Update Oreta Monthly Report" : "💾 Submit Oreta Monthly Report"}
+              </button>
+              {todayEntries.length > 0 && (
+                <button type="button" className="btn btn-secondary" onClick={() => setIsEditing(false)}>
+                  Cancel
+                </button>
+              )}
+            </div>
+          </div>
+        </form>
+      )}
+
+      {/* History Log */}
+      <div className="card">
+        <div className="card-header">
+          <div className="card-title">🕒 Oreta Monthly Maintenance History</div>
+          <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+            <label style={{ fontSize: "0.82rem", color: "var(--text-muted)" }}>Month:</label>
+            <input
+              type="month"
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              style={{ padding: "0.3rem 0.5rem", fontSize: "0.82rem", borderRadius: "6px", border: "1px solid var(--border)" }}
             />
           </div>
-
-          <div className="flex justify-end pt-2">
-            <button
-              type="submit"
-              disabled={isPending}
-              className="btn btn-primary px-6 py-2.5 font-semibold text-sm shadow-md"
-            >
-              {isPending ? "⏳ Saving..." : existingEntry ? "💾 Update Monthly Log" : "💾 Submit Monthly Maintenance Log"}
-            </button>
-          </div>
         </div>
-      </form>
 
-      {/* History */}
-      {history.length > 0 && (
-        <div className="card p-5 space-y-3">
-          <h3 className="text-base font-semibold">
-            🕒 Past Monthly Maintenance Records
-          </h3>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="border-b font-semibold text-slate-500 uppercase">
-                  <th className="p-2">Month</th>
-                  <th className="p-2">Supervisor</th>
-                  <th className="p-2">Submitted By</th>
-                  <th className="p-2">Timestamp</th>
-                  <th className="p-2 text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {history.map((h) => (
-                  <tr key={h.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
-                    <td className="p-2 font-semibold">{h.month}</td>
-                    <td className="p-2">{h.supervisorName}</td>
-                    <td className="p-2">{h.submittedBy?.name || "Admin"}</td>
-                    <td className="p-2 text-slate-400">
-                      {new Date(h.createdAt).toLocaleDateString("en-IN")}
-                    </td>
-                    <td className="p-2 text-right">
-                      <button
-                        onClick={() => handleMonthChange(h.month)}
-                        className="btn btn-xs btn-secondary"
-                      >
-                        View / Edit
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        {selectedMonthEntries.length === 0 ? (
+          <div className="empty-state">
+            <div className="empty-state-icon">🗓️</div>
+            <p>No monthly maintenance records found for {selectedMonth}.</p>
           </div>
-        </div>
-      )}
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+            {selectedMonthEntries.map((entry) => (
+              <div
+                key={entry.id}
+                style={{
+                  border: "1px solid var(--border)",
+                  borderRadius: "8px",
+                  padding: "1rem",
+                  background: "var(--bg-input)",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "0.5rem", marginBottom: "0.5rem" }}>
+                  <div>
+                    <strong>🗓️ {entry.month}</strong> · Submitted by <strong>{entry.submittedBy?.name || "Admin"}</strong>
+                  </div>
+                  <div style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>
+                    Supervisor: <strong>{entry.supervisorName || "—"}</strong>
+                  </div>
+                </div>
+                {entry.comments && (
+                  <div style={{ fontSize: "0.82rem", color: "var(--text-secondary)" }}>
+                    💬 <em>&ldquo;{entry.comments}&rdquo;</em>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

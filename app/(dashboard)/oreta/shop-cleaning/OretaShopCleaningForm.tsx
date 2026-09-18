@@ -1,16 +1,17 @@
 "use client";
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState } from "react";
 import { ORETA_HYGIENE_AREAS, ORETA_STAFF } from "@/lib/outlets";
 import { SUPERVISORS } from "@/lib/permissions";
 
-interface ShiftCheck {
+export type ShiftKey = "morning" | "afternoon" | "evening" | "night";
+
+export interface ShiftCheck {
   status: "YES" | "NO" | "N/A";
   staff: string;
   time: string;
 }
 
-interface AreaRow {
+export interface AreaRow {
   id: number;
   area: string;
   morning: ShiftCheck;
@@ -19,146 +20,141 @@ interface AreaRow {
   night: ShiftCheck;
 }
 
-interface ExistingEntry {
+export interface EntryType {
   id: string;
   date: string;
   day: string;
+  areaChecks: string;
   supervisorName: string;
   comments: string;
   correctiveAction: string;
-  areaChecks: string;
-  submittedBy: { name: string; email: string };
+  submittedBy: { name: string };
   createdAt: string;
 }
 
 interface Props {
-  initialDate: string;
-  initialDay: string;
-  existingEntry: ExistingEntry | null;
-  currentUser: { id: string; name: string; role: string };
+  today: string;
+  todayLabel: string;
+  dayName: string;
+  todayEntries: EntryType[];
+  history: EntryType[];
+  userName: string;
 }
 
-const SHIFT_KEYS = ["morning", "afternoon", "evening", "night"] as const;
-type ShiftKey = typeof SHIFT_KEYS[number];
+const SHIFT_KEYS: ShiftKey[] = ["morning", "afternoon", "evening", "night"];
 
-const SHIFT_LABELS: Record<ShiftKey, { label: string; icon: string; time: string }> = {
+const SHIFT_INFO: Record<ShiftKey, { label: string; icon: string; time: string }> = {
   morning: { label: "Morning", icon: "🌅", time: "09:00" },
   afternoon: { label: "Afternoon", icon: "☀️", time: "14:00" },
   evening: { label: "Evening", icon: "🌆", time: "18:30" },
   night: { label: "Night", icon: "🌙", time: "22:00" },
 };
 
-function normalizeStaffName(raw: string, defaultStaff: string): string {
-  if (!raw) return defaultStaff;
-  const upper = raw.toUpperCase().trim();
-  if (upper.includes("RAMESHWAR")) return "Rameshwar";
-  if (upper.includes("BHARTI")) return "Bharti";
-  if (upper.includes("MANGLA")) return "Mangla";
-  if (upper.includes("ARZAAAN")) return "Arzaaan";
-  if (upper.includes("NEW")) return "New Staff";
-  if (upper === "—" || upper === "-") return "—";
-  return raw;
+function getCurrentShift(): ShiftKey {
+  const h = new Date().getHours();
+  if (h < 12) return "morning";
+  if (h < 16) return "afternoon";
+  if (h < 20) return "evening";
+  return "night";
+}
+
+function getCurrentTimeString(): string {
+  const now = new Date();
+  const h = String(now.getHours()).padStart(2, "0");
+  const m = String(now.getMinutes()).padStart(2, "0");
+  return `${h}:${m}`;
 }
 
 export default function OretaShopCleaningForm({
-  initialDate,
-  initialDay,
-  existingEntry,
-  currentUser,
+  today,
+  todayLabel,
+  dayName,
+  todayEntries: initialTodayEntries,
+  history: initialHistory,
+  userName,
 }: Props) {
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const init: AreaRow[] = ORETA_HYGIENE_AREAS.map((item) => ({
+    id: item.id,
+    area: item.area,
+    morning: {
+      status: item.morningDisabled ? "N/A" : "YES",
+      staff: item.morningDisabled ? "—" : item.defaultStaff,
+      time: "09:00",
+    },
+    afternoon: {
+      status: "YES",
+      staff: item.defaultStaff,
+      time: "14:00",
+    },
+    evening: {
+      status: "YES",
+      staff: item.defaultStaff,
+      time: "18:30",
+    },
+    night: {
+      status: "YES",
+      staff: item.defaultStaff,
+      time: "22:00",
+    },
+  }));
 
-  const [date, setDate] = useState(initialDate);
-  const [day, setDay] = useState(initialDay);
-  const [activeShiftTab, setActiveShiftTab] = useState<ShiftKey | "all">("all");
+  const [todayEntries, setTodayEntries] = useState<EntryType[]>(initialTodayEntries);
+  const [history, setHistory] = useState<EntryType[]>(initialHistory);
 
-  const buildInitialRows = (): AreaRow[] => {
-    if (existingEntry?.areaChecks) {
-      try {
-        const parsed = JSON.parse(existingEntry.areaChecks);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.map((r) => {
-            const areaDef = ORETA_HYGIENE_AREAS.find((a) => a.id === r.id);
-            const defStaff = areaDef?.defaultStaff || "Rameshwar";
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(initialTodayEntries.length === 0);
+
+  const [rows, setRows] = useState<AreaRow[]>(init);
+  const [activeShift, setActiveShift] = useState<ShiftKey | "all">(getCurrentShift());
+  const [supervisorName, setSupervisorName] = useState(SUPERVISORS[0] || "Aboli Wagh");
+  const [comments, setComments] = useState("");
+  const [correctiveAction, setCorrectiveAction] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [alert, setAlert] = useState<{ type: "success" | "error"; msg: string } | null>(null);
+  const [selectedDate, setSelectedDate] = useState(today);
+
+  function startNewSubmission() {
+    setEditingId(null);
+    setRows(init);
+    setSupervisorName(SUPERVISORS[0] || "Aboli Wagh");
+    setComments("");
+    setCorrectiveAction("");
+    setIsEditing(true);
+    setAlert(null);
+  }
+
+  function startEditSubmission(entry: EntryType) {
+    setEditingId(entry.id);
+    try {
+      const parsed = JSON.parse(entry.areaChecks);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        setRows(
+          parsed.map((r: AreaRow, idx: number) => {
+            const def = ORETA_HYGIENE_AREAS[idx] || { id: idx + 1, area: `Area ${idx + 1}`, defaultStaff: "Rameshwar" };
             return {
-              ...r,
-              morning: {
-                ...r.morning,
-                staff: normalizeStaffName(r.morning?.staff, areaDef?.morningDisabled ? "—" : defStaff),
-              },
-              afternoon: {
-                ...r.afternoon,
-                staff: normalizeStaffName(r.afternoon?.staff, defStaff),
-              },
-              evening: {
-                ...r.evening,
-                staff: normalizeStaffName(r.evening?.staff, defStaff),
-              },
-              night: {
-                ...r.night,
-                staff: normalizeStaffName(r.night?.staff, defStaff),
-              },
+              id: r.id || def.id,
+              area: r.area || def.area,
+              morning: r.morning || { status: "YES", staff: def.defaultStaff, time: "09:00" },
+              afternoon: r.afternoon || { status: "YES", staff: def.defaultStaff, time: "14:00" },
+              evening: r.evening || { status: "YES", staff: def.defaultStaff, time: "18:30" },
+              night: r.night || { status: "YES", staff: def.defaultStaff, time: "22:00" },
             };
-          });
-        }
-      } catch {
-        // fallback
+          })
+        );
+      } else {
+        setRows(init);
       }
+    } catch {
+      setRows(init);
     }
+    setSupervisorName(entry.supervisorName || SUPERVISORS[0] || "Aboli Wagh");
+    setComments(entry.comments || "");
+    setCorrectiveAction(entry.correctiveAction || "");
+    setIsEditing(true);
+    setAlert(null);
+  }
 
-    return ORETA_HYGIENE_AREAS.map((item) => ({
-      id: item.id,
-      area: item.area,
-      morning: {
-        status: item.morningDisabled ? "N/A" : "YES",
-        staff: item.morningDisabled ? "—" : item.defaultStaff,
-        time: "09:00",
-      },
-      afternoon: {
-        status: "YES",
-        staff: item.defaultStaff,
-        time: "14:00",
-      },
-      evening: {
-        status: "YES",
-        staff: item.defaultStaff,
-        time: "18:30",
-      },
-      night: {
-        status: "YES",
-        staff: item.defaultStaff,
-        time: "22:00",
-      },
-    }));
-  };
-
-  const [rows, setRows] = useState<AreaRow[]>(buildInitialRows);
-  const [supervisorName, setSupervisorName] = useState(
-    existingEntry?.supervisorName || SUPERVISORS[0]
-  );
-  const [comments, setComments] = useState(existingEntry?.comments || "");
-  const [correctiveAction, setCorrectiveAction] = useState(
-    existingEntry?.correctiveAction || ""
-  );
-
-  const [saveSuccess, setSaveSuccess] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
-
-  const handleDateChange = (newDate: string) => {
-    setDate(newDate);
-    const d = new Date(newDate + "T00:00:00");
-    const dayName = d.toLocaleDateString("en-IN", { weekday: "long" });
-    setDay(dayName);
-    router.push(`/oreta/shop-cleaning?date=${newDate}`);
-  };
-
-  const updateShiftCheck = (
-    rowId: number,
-    shift: ShiftKey,
-    field: keyof ShiftCheck,
-    value: string
-  ) => {
+  function updateCheck(rowId: number, shift: ShiftKey, field: keyof ShiftCheck, value: string) {
     setRows((prev) =>
       prev.map((r) =>
         r.id === rowId
@@ -172,389 +168,410 @@ export default function OretaShopCleaningForm({
           : r
       )
     );
-  };
+  }
 
-  const setAllStatus = (status: "YES" | "NO" | "N/A", shift?: ShiftKey) => {
+  function markAllYes(targetShift?: ShiftKey) {
+    const shiftsToUpdate = targetShift ? [targetShift] : SHIFT_KEYS;
     setRows((prev) =>
       prev.map((r) => {
-        if (shift) {
-          return {
-            ...r,
-            [shift]: { ...r[shift], status },
-          };
-        }
-        return {
-          ...r,
-          morning: { ...r.morning, status: r.morning.staff === "—" ? "N/A" : status },
-          afternoon: { ...r.afternoon, status },
-          evening: { ...r.evening, status },
-          night: { ...r.night, status },
-        };
+        const areaDef = ORETA_HYGIENE_AREAS.find((a) => a.id === r.id);
+        const updated = { ...r };
+        shiftsToUpdate.forEach((s) => {
+          if (s === "morning" && areaDef?.morningDisabled) return;
+          updated[s] = { ...updated[s], status: "YES" };
+        });
+        return updated;
       })
     );
-  };
+  }
 
-  const autoFillStaff = () => {
-    const staffName = currentUser.name || "Staff";
+  function assignAllTo(name: string, targetShift?: ShiftKey) {
+    if (!name) return;
+    const shiftsToUpdate = targetShift ? [targetShift] : SHIFT_KEYS;
     setRows((prev) =>
-      prev.map((r) => ({
-        ...r,
-        morning: { ...r.morning, staff: r.morning.staff === "—" ? "—" : staffName },
-        afternoon: { ...r.afternoon, staff: staffName },
-        evening: { ...r.evening, staff: staffName },
-        night: { ...r.night, staff: staffName },
-      }))
+      prev.map((r) => {
+        const updated = { ...r };
+        shiftsToUpdate.forEach((s) => {
+          updated[s] = { ...updated[s], staff: name };
+        });
+        return updated;
+      })
     );
-  };
+  }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setErrorMsg("");
-    setSaveSuccess(false);
-
-    startTransition(async () => {
-      try {
-        const payload = {
-          date,
-          day,
-          areaChecks: JSON.stringify(rows),
+    setSaving(true);
+    setAlert(null);
+    try {
+      const res = await fetch("/api/entries/oreta-shop-cleaning", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editingId,
+          date: today,
+          day: dayName,
+          areaChecks: rows,
           supervisorName,
           comments,
           correctiveAction,
-        };
+        }),
+      });
+      if (res.ok) {
+        const saved: EntryType = await res.json();
+        const withSubmitter = { ...saved, submittedBy: { name: userName } };
 
-        const res = await fetch("/api/entries/oreta-shop-cleaning", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-
-        if (!res.ok) {
-          const data = await res.json();
-          throw new Error(data.error || "Failed to submit checklist");
+        if (editingId) {
+          setTodayEntries((prev) => prev.map((e) => (e.id === editingId ? withSubmitter : e)));
+          setHistory((prev) => prev.map((e) => (e.id === editingId ? withSubmitter : e)));
+          setAlert({ type: "success", msg: "✅ Oreta Shop Cleaning report updated!" });
+        } else {
+          setTodayEntries((prev) => [withSubmitter, ...prev]);
+          setHistory((prev) => [withSubmitter, ...prev]);
+          setAlert({
+            type: "success",
+            msg: `✅ New Shop Cleaning report recorded at ${new Date(saved.createdAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}!`,
+          });
         }
-
-        setSaveSuccess(true);
-        setTimeout(() => setSaveSuccess(false), 4000);
-        router.refresh();
-      } catch (err: unknown) {
-        setErrorMsg(err instanceof Error ? err.message : "An error occurred");
+        setIsEditing(false);
+      } else {
+        const d = await res.json();
+        setAlert({ type: "error", msg: d.error || "Failed to save." });
       }
-    });
-  };
+    } catch {
+      setAlert({ type: "error", msg: "Network error. Please try again." });
+    }
+    setSaving(false);
+  }
 
-  let totalChecks = 0;
-  let passedChecks = 0;
-  rows.forEach((r) => {
-    SHIFT_KEYS.forEach((s) => {
-      totalChecks++;
-      if (r[s].status === "YES" || r[s].status === "N/A") passedChecks++;
-    });
-  });
-  const complianceScore = Math.round((passedChecks / totalChecks) * 100);
+  const selectedDateEntries = history.filter((h) => h.date === selectedDate);
+  const activeShiftsList = activeShift === "all" ? SHIFT_KEYS : [activeShift];
 
   return (
-    <form onSubmit={handleSubmit} className="fade-in">
-      {/* Top Date & Submission Status Bar */}
-      <div className="form-card" style={{ marginBottom: "1.25rem" }}>
-        <div className="date-nav">
-          <div className="date-nav-controls">
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={() => {
-                const d = new Date(date + "T00:00:00");
-                d.setDate(d.getDate() - 1);
-                handleDateChange(d.toISOString().split("T")[0]);
-              }}
-            >
-              ← Prev
+    <div className="page-container fade-in">
+      <div className="page-header">
+        <div className="page-header-text">
+          <h1>🧹 Oreta World Shop Cleaning</h1>
+          <p>4-Shift Daily Hygiene Checklist (12 Areas) — {todayLabel}</p>
+        </div>
+        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+          {!isEditing && (
+            <button className="btn btn-primary btn-sm" onClick={startNewSubmission}>
+              ➕ New Submission for Today
             </button>
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => handleDateChange(e.target.value)}
-              className="form-control"
-              style={{ width: "auto", fontWeight: 700 }}
-            />
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={() => {
-                const d = new Date(date + "T00:00:00");
-                d.setDate(d.getDate() + 1);
-                handleDateChange(d.toISOString().split("T")[0]);
-              }}
-            >
-              Next →
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={() => handleDateChange(new Date().toISOString().split("T")[0])}
-            >
-              Today
-            </button>
-          </div>
-
-          <div
-            className={`submission-banner ${existingEntry ? "submitted" : "pending"}`}
-            style={{ margin: 0 }}
-          >
-            <span className="banner-dot" />
-            <span>
-              {existingEntry
-                ? `Submitted by ${existingEntry.submittedBy.name} (${new Date(
-                    existingEntry.createdAt
-                  ).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })})`
-                : "Not Submitted Yet Today"}
-            </span>
-          </div>
+          )}
         </div>
       </div>
 
-      {/* Quick Action Bar & Shift Filter */}
-      <div className="form-card" style={{ marginBottom: "1.25rem" }}>
-        <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: "0.75rem", alignItems: "center" }}>
-          {/* Shift Filter Pills */}
-          <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
-            <button
-              type="button"
-              className={`btn btn-sm ${activeShiftTab === "all" ? "btn-primary" : "btn-secondary"}`}
-              onClick={() => setActiveShiftTab("all")}
-            >
-              📋 All 4 Shifts
-            </button>
-            {SHIFT_KEYS.map((key) => (
-              <button
-                key={key}
-                type="button"
-                className={`btn btn-sm ${activeShiftTab === key ? "btn-primary" : "btn-secondary"}`}
-                onClick={() => setActiveShiftTab(key)}
+      {alert && (
+        <div className={`alert alert-${alert.type}`} style={{ marginBottom: "1rem" }}>
+          {alert.msg}
+        </div>
+      )}
+
+      {/* TODAY'S SUBMISSIONS */}
+      {!isEditing && todayEntries.length > 0 && (
+        <div className="card" style={{ marginBottom: "1.5rem" }}>
+          <div className="card-header">
+            <div className="card-title">
+              📋 Today&apos;s Recorded Submissions ({todayEntries.length})
+            </div>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+            {todayEntries.map((entry, idx) => (
+              <div
+                key={entry.id}
+                style={{
+                  padding: "0.85rem 1rem",
+                  background: "var(--bg-input)",
+                  borderRadius: "8px",
+                  border: "1px solid var(--border)",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: "0.5rem",
+                }}
               >
-                {SHIFT_LABELS[key].icon} {SHIFT_LABELS[key].label}
-              </button>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: "0.9rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    <span className="badge badge-submitted">#{todayEntries.length - idx}</span>
+                    <span>Supervisor: <strong>{entry.supervisorName || "Aboli Wagh"}</strong></span>
+                  </div>
+                  <div style={{ fontSize: "0.78rem", color: "var(--text-muted)", marginTop: "2px" }}>
+                    ⏰ {new Date(entry.createdAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                    {entry.comments && ` • "${entry.comments}"`}
+                  </div>
+                </div>
+                <button className="btn btn-secondary btn-sm" onClick={() => startEditSubmission(entry)}>
+                  ✏️ View / Edit
+                </button>
+              </div>
             ))}
           </div>
-
-          {/* 1-Tap Batch Helpers */}
-          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={() => setAllStatus("YES", activeShiftTab === "all" ? undefined : activeShiftTab)}
-              title="Set all visible items to YES"
-            >
-              ⚡ Set All YES
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={autoFillStaff}
-              title="Assign my name to all shifts"
-            >
-              👤 Fill My Name
-            </button>
-          </div>
         </div>
-      </div>
+      )}
 
-      {/* Checklist Cards / Grid */}
-      <div className="table-wrapper" style={{ marginBottom: "1.5rem" }}>
-        <div className="table-header-title">
-          <span>🧹 Oreta World Daily Shop Cleaning & Hygiene Checklist</span>
-          <span className="badge badge-blue">12 Areas · 4 Shifts · Compliance {complianceScore}%</span>
-        </div>
+      {isEditing && (
+        <form onSubmit={handleSubmit}>
+          <div className="card" style={{ marginBottom: "1.5rem" }}>
+            <div className="card-header">
+              <div className="card-title">
+                {editingId ? "✏️ Edit Shop Cleaning Report" : "➕ New Shop Cleaning Submission"}
+              </div>
+            </div>
 
-        <table className="checklist-table">
-          <thead>
-            <tr>
-              <th style={{ width: "40px" }}>#</th>
-              <th style={{ minWidth: "180px" }}>Area / Location</th>
-              {(activeShiftTab === "all" || activeShiftTab === "morning") && (
-                <th style={{ minWidth: "220px" }}>🌅 Morning (09:00)</th>
-              )}
-              {(activeShiftTab === "all" || activeShiftTab === "afternoon") && (
-                <th style={{ minWidth: "220px" }}>☀️ Afternoon (14:00)</th>
-              )}
-              {(activeShiftTab === "all" || activeShiftTab === "evening") && (
-                <th style={{ minWidth: "220px" }}>🌆 Evening (18:30)</th>
-              )}
-              {(activeShiftTab === "all" || activeShiftTab === "night") && (
-                <th style={{ minWidth: "220px" }}>🌙 Night (22:00)</th>
-              )}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => {
-              const areaDef = ORETA_HYGIENE_AREAS.find((a) => a.id === row.id);
-              const assigned = areaDef?.assignedStaff || [];
-              const otherStaff = ORETA_STAFF.filter((s) => !assigned.includes(s));
+            {/* Shift Selector Pills */}
+            <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", marginBottom: "1rem" }}>
+              <button
+                type="button"
+                className={`btn btn-sm ${activeShift === "all" ? "btn-primary" : "btn-secondary"}`}
+                onClick={() => setActiveShift("all")}
+              >
+                📋 All 4 Shifts
+              </button>
+              {SHIFT_KEYS.map((key) => {
+                const info = SHIFT_INFO[key];
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    className={`btn btn-sm ${activeShift === key ? "btn-primary" : "btn-secondary"}`}
+                    onClick={() => setActiveShift(key)}
+                  >
+                    {info.icon} {info.label} ({info.time})
+                  </button>
+                );
+              })}
+            </div>
 
-              return (
-                <tr key={row.id}>
-                  <td className="item-cell" style={{ fontWeight: 700, color: "var(--text-muted)" }}>
-                    {row.id}
-                  </td>
-                  <td className="item-cell">
-                    <div style={{ fontWeight: 700, fontSize: "0.95rem" }}>{row.area}</div>
-                    <div style={{ fontSize: "0.72rem", color: "var(--accent)", marginTop: "2px", fontWeight: 600 }}>
-                      Assigned: {assigned.join(" or ")}
-                    </div>
-                  </td>
+            {/* 1-Tap Quick Action Bar */}
+            <div className="quick-action-bar">
+              <span>⚡ 1-Tap Quick Actions:</span>
+              <button
+                type="button"
+                className="btn btn-sm btn-secondary"
+                onClick={() => markAllYes(activeShift === "all" ? undefined : activeShift)}
+              >
+                ✅ Mark {activeShift === "all" ? "All Shifts" : SHIFT_INFO[activeShift].label} YES
+              </button>
+              <div style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
+                <span style={{ fontSize: "0.72rem" }}>👤 Assign:</span>
+                <select
+                  value=""
+                  onChange={(e) => assignAllTo(e.target.value, activeShift === "all" ? undefined : activeShift)}
+                  style={{
+                    padding: "0.25rem 0.5rem",
+                    fontSize: "0.75rem",
+                    borderRadius: "4px",
+                    background: "var(--bg-card)",
+                    border: "1px solid var(--border)",
+                    color: "var(--text-primary)",
+                  }}
+                >
+                  <option value="" disabled>Select Staff</option>
+                  {ORETA_STAFF.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
 
-                  {SHIFT_KEYS.filter((s) => activeShiftTab === "all" || activeShiftTab === s).map(
-                    (shift) => {
-                      const check = row[shift];
-                      const isMorningDisabled = shift === "morning" && areaDef?.morningDisabled;
+            <div style={{ overflowX: "auto" }}>
+              <table className="checklist-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: "35%" }}>Area / Facility Zone</th>
+                    {activeShiftsList.map((s) => (
+                      <th key={s} style={{ width: activeShiftsList.length === 1 ? "65%" : "220px" }}>
+                        {SHIFT_INFO[s].icon} {SHIFT_INFO[s].label} ({SHIFT_INFO[s].time})
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row) => {
+                    const areaDef = ORETA_HYGIENE_AREAS.find((a) => a.id === row.id);
+                    const assigned = areaDef?.assignedStaff || ["Rameshwar"];
 
-                      return (
-                        <td key={shift} className="touch-cell" style={{ verticalAlign: "top" }}>
-                          <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
-                            {/* 1-Tap Toggle */}
-                            <div className="touch-toggle-group">
-                              <button
-                                type="button"
-                                className={`touch-btn-option ${check.status === "YES" ? "active-yes" : ""}`}
-                                onClick={() => updateShiftCheck(row.id, shift, "status", "YES")}
-                              >
-                                ✓ YES
-                              </button>
-                              <button
-                                type="button"
-                                className={`touch-btn-option ${check.status === "NO" ? "active-no" : ""}`}
-                                onClick={() => updateShiftCheck(row.id, shift, "status", "NO")}
-                              >
-                                ✕ NO
-                              </button>
-                              <button
-                                type="button"
-                                className={`touch-btn-option ${check.status === "N/A" ? "active-na" : ""}`}
-                                onClick={() => updateShiftCheck(row.id, shift, "status", "N/A")}
-                              >
-                                N/A
-                              </button>
-                            </div>
-
-                            {/* Staff Dropdown Selector */}
-                            <select
-                              value={check.staff}
-                              onChange={(e) => updateShiftCheck(row.id, shift, "staff", e.target.value)}
-                              className="form-control"
-                              style={{
-                                fontSize: "0.78rem",
-                                padding: "0.25rem 0.4rem",
-                                height: "30px",
-                                fontWeight: 600,
-                                background: "#ffffff",
-                              }}
-                            >
-                              {isMorningDisabled && <option value="—">— Not Applicable</option>}
-                              <optgroup label="Assigned Floor Staff (Choose Either)">
-                                {assigned.map((emp) => (
-                                  <option key={emp} value={emp}>
-                                    👤 {emp}
-                                  </option>
-                                ))}
-                              </optgroup>
-                              <optgroup label="Other Staff">
-                                {otherStaff.map((emp) => (
-                                  <option key={emp} value={emp}>
-                                    {emp}
-                                  </option>
-                                ))}
-                                {!isMorningDisabled && <option value="—">— None / Other</option>}
-                              </optgroup>
-                            </select>
+                    return (
+                      <tr key={row.id}>
+                        <td style={{ fontWeight: 600 }}>
+                          <div>
+                            <span>{row.area}</span>
+                          </div>
+                          <div style={{ fontSize: "0.72rem", color: "var(--accent)", marginTop: "2px", fontWeight: 600 }}>
+                            Assigned: {assigned.join(" or ")}
                           </div>
                         </td>
-                      );
-                    }
-                  )}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
 
-      {/* Supervisor Verification & Notes */}
-      <div className="form-card" style={{ marginBottom: "5rem" }}>
-        <div className="form-grid">
-          <div className="form-group">
-            <label className="form-label">Supervisor / Verifier Name</label>
-            <select
-              value={supervisorName}
-              onChange={(e) => setSupervisorName(e.target.value)}
-              className="form-control"
-            >
-              {SUPERVISORS.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-              {ORETA_STAFF.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
+                        {activeShiftsList.map((s) => {
+                          const check = row[s];
+                          const isMorningDisabled = s === "morning" && areaDef?.morningDisabled;
+
+                          if (isMorningDisabled) {
+                            return (
+                              <td key={s} style={{ verticalAlign: "middle" }}>
+                                <span className="badge" style={{ background: "var(--bg-primary)", color: "var(--text-muted)", fontSize: "0.75rem" }}>
+                                  ⚪ N/A (Afternoon only)
+                                </span>
+                              </td>
+                            );
+                          }
+
+                          return (
+                            <td key={s} style={{ verticalAlign: "top" }}>
+                              <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", width: "100%" }}>
+                                <div className="touch-btn-toggle">
+                                  <button
+                                    type="button"
+                                    className={`touch-btn-option ${check.status === "YES" ? "active-yes" : ""}`}
+                                    onClick={() => updateCheck(row.id, s, "status", "YES")}
+                                  >
+                                    ✓ YES
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className={`touch-btn-option ${check.status === "NO" ? "active-no" : ""}`}
+                                    onClick={() => updateCheck(row.id, s, "status", "NO")}
+                                  >
+                                    ✕ NO
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className={`touch-btn-option ${check.status === "N/A" ? "active-na" : ""}`}
+                                    onClick={() => updateCheck(row.id, s, "status", "N/A")}
+                                  >
+                                    N/A
+                                  </button>
+                                </div>
+
+                                <div style={{ display: "flex", gap: "0.3rem", width: "100%" }}>
+                                  <select
+                                    value={check.staff}
+                                    onChange={(e) => updateCheck(row.id, s, "staff", e.target.value)}
+                                    style={{ flex: 1, fontSize: "0.78rem", minHeight: "36px", fontWeight: 600 }}
+                                  >
+                                    <optgroup label="Assigned Staff">
+                                      {assigned.map((st) => (
+                                        <option key={st} value={st}>{st}</option>
+                                      ))}
+                                    </optgroup>
+                                    <optgroup label="Other Staff">
+                                      {ORETA_STAFF.filter((st) => !assigned.includes(st)).map((st) => (
+                                        <option key={st} value={st}>{st}</option>
+                                      ))}
+                                    </optgroup>
+                                  </select>
+                                </div>
+                              </div>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="form-grid" style={{ marginTop: "1.25rem" }}>
+              <div className="form-group">
+                <label>Verified By Supervisor</label>
+                <select
+                  value={supervisorName}
+                  onChange={(e) => setSupervisorName(e.target.value)}
+                  style={{ fontWeight: 600, color: "var(--accent)" }}
+                >
+                  {SUPERVISORS.map((sup) => (
+                    <option key={sup} value={sup}>{sup}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Daily Hygiene Remarks</label>
+                <textarea
+                  value={comments}
+                  onChange={(e) => setComments(e.target.value)}
+                  placeholder="e.g. All 4 shifts completed; kitchen and store clean."
+                  rows={2}
+                />
+              </div>
+              <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+                <label>Corrective Actions</label>
+                <textarea
+                  value={correctiveAction}
+                  onChange={(e) => setCorrectiveAction(e.target.value)}
+                  placeholder="e.g. Evening outdoor floor washed twice due to heavy footfall."
+                  rows={2}
+                />
+              </div>
+            </div>
+
+            <div className="form-actions" style={{ marginTop: "1.5rem" }}>
+              <button type="submit" className="btn btn-primary" disabled={saving}>
+                {saving ? "⏳ Saving..." : editingId ? "💾 Update Shop Cleaning Report" : "💾 Submit Shop Cleaning Report"}
+              </button>
+              {todayEntries.length > 0 && (
+                <button type="button" className="btn btn-secondary" onClick={() => setIsEditing(false)}>
+                  Cancel
+                </button>
+              )}
+            </div>
           </div>
+        </form>
+      )}
 
-          <div className="form-group">
-            <label className="form-label">Comments / Floor Observations</label>
-            <textarea
-              value={comments}
-              onChange={(e) => setComments(e.target.value)}
-              placeholder="e.g. All counters wiped and disinfected before lunch rush..."
-              rows={2}
-              className="form-control"
-            />
-          </div>
-
-          <div className="form-group" style={{ gridColumn: "1 / -1" }}>
-            <label className="form-label">Corrective Actions Taken (if any NO)</label>
-            <textarea
-              value={correctiveAction}
-              onChange={(e) => setCorrectiveAction(e.target.value)}
-              placeholder="e.g. Washing vessels area re-cleaned at 19:00..."
-              rows={2}
-              className="form-control"
+      {/* History Log */}
+      <div className="card">
+        <div className="card-header">
+          <div className="card-title">🕒 Oreta Shop Cleaning History Log</div>
+          <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+            <label style={{ fontSize: "0.82rem", color: "var(--text-muted)" }}>Date:</label>
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              style={{ padding: "0.3rem 0.5rem", fontSize: "0.82rem", borderRadius: "6px", border: "1px solid var(--border)" }}
             />
           </div>
         </div>
 
-        {errorMsg && (
-          <div className="error-banner" style={{ marginTop: "1rem" }}>
-            ⚠️ {errorMsg}
+        {selectedDateEntries.length === 0 ? (
+          <div className="empty-state">
+            <div className="empty-state-icon">🧹</div>
+            <p>No shop cleaning records found for {selectedDate}.</p>
           </div>
-        )}
-        {saveSuccess && (
-          <div className="success-banner" style={{ marginTop: "1rem" }}>
-            ✓ Oreta World Shop Cleaning SOP successfully saved and submitted!
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+            {selectedDateEntries.map((entry) => (
+              <div
+                key={entry.id}
+                style={{
+                  border: "1px solid var(--border)",
+                  borderRadius: "8px",
+                  padding: "1rem",
+                  background: "var(--bg-input)",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "0.5rem", marginBottom: "0.5rem" }}>
+                  <div>
+                    <strong>📅 {entry.date} ({entry.day})</strong> · Submitted by <strong>{entry.submittedBy?.name || "Admin"}</strong>
+                  </div>
+                  <div style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>
+                    Supervisor: <strong>{entry.supervisorName || "—"}</strong>
+                  </div>
+                </div>
+                {entry.comments && (
+                  <div style={{ fontSize: "0.82rem", color: "var(--text-secondary)" }}>
+                    💬 <em>&ldquo;{entry.comments}&rdquo;</em>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         )}
       </div>
-
-      {/* Sticky Bottom Action Bar */}
-      <div className="form-actions">
-        <button
-          type="button"
-          className="btn btn-secondary"
-          onClick={() => setRows(buildInitialRows())}
-          disabled={isPending}
-        >
-          Reset
-        </button>
-        <button
-          type="submit"
-          className="btn btn-primary btn-lg"
-          disabled={isPending}
-          style={{ minWidth: "200px" }}
-        >
-          {isPending ? "Submitting..." : existingEntry ? "Update Shop SOP" : "Submit Shop SOP"}
-        </button>
-      </div>
-    </form>
+    </div>
   );
 }

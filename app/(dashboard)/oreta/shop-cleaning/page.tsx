@@ -1,14 +1,10 @@
 import { auth } from "@/lib/auth";
 import { prisma, ensureDbSchema } from "@/lib/db";
 import { redirect } from "next/navigation";
-import { getTodayString, getDayName, hasSheetAccess } from "@/lib/permissions";
+import { getTodayString, getDayName, formatDate, hasSheetAccess } from "@/lib/permissions";
 import OretaShopCleaningForm from "./OretaShopCleaningForm";
 
-interface PageProps {
-  searchParams: Promise<{ date?: string }>;
-}
-
-export default async function OretaShopCleaningPage({ searchParams }: PageProps) {
+export default async function OretaShopCleaningPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
@@ -26,52 +22,35 @@ export default async function OretaShopCleaningPage({ searchParams }: PageProps)
     );
   }
 
-  const resolvedParams = (await searchParams) || {};
-  const targetDate = resolvedParams.date || getTodayString();
-  const day = getDayName(targetDate);
+  const today = getTodayString();
+  const dayName = getDayName(today);
 
-  let existingEntry = null;
+  let todayEntries: any[] = [];
+  let history: any[] = [];
   try {
-    existingEntry = await prisma.oretaHygieneEntry.findFirst({
-      where: { date: targetDate },
+    todayEntries = await prisma.oretaHygieneEntry.findMany({
+      where: { date: today },
       orderBy: { createdAt: "desc" },
-      include: { submittedBy: { select: { name: true, email: true } } },
+      include: { submittedBy: { select: { name: true } } },
+    });
+
+    history = await prisma.oretaHygieneEntry.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      include: { submittedBy: { select: { name: true } } },
     });
   } catch (err) {
-    console.error("Error fetching oreta shop cleaning entry:", err);
+    console.error("Error fetching oreta shop cleaning entries:", err);
   }
 
-  const serializedEntry = existingEntry
-    ? {
-        id: existingEntry.id,
-        date: existingEntry.date,
-        day: existingEntry.day,
-        supervisorName: existingEntry.supervisorName,
-        comments: existingEntry.comments,
-        correctiveAction: existingEntry.correctiveAction,
-        areaChecks: existingEntry.areaChecks,
-        submittedBy: existingEntry.submittedBy,
-        createdAt: existingEntry.createdAt.toISOString(),
-      }
-    : null;
-
   return (
-    <div className="page-container">
-      <div className="page-header">
-        <div className="page-header-text">
-          <h1>🧹 Oreta World — Shop Cleaning SOP</h1>
-          <p>
-            Outlet Sub-Account: <strong>Oreta World</strong> · Daily 4-Shift Floor & Area Cleaning Log
-          </p>
-        </div>
-      </div>
-
-      <OretaShopCleaningForm
-        initialDate={targetDate}
-        initialDay={day}
-        existingEntry={serializedEntry}
-        currentUser={{ id: user.id, name: user.name || "Staff", role: user.role }}
-      />
-    </div>
+    <OretaShopCleaningForm
+      today={today}
+      todayLabel={formatDate(today)}
+      dayName={dayName}
+      todayEntries={JSON.parse(JSON.stringify(todayEntries))}
+      history={JSON.parse(JSON.stringify(history))}
+      userName={user.name}
+    />
   );
 }

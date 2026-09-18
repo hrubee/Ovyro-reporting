@@ -4,11 +4,7 @@ import { redirect } from "next/navigation";
 import { getTodayString, hasSheetAccess } from "@/lib/permissions";
 import OretaMonthlyForm from "./OretaMonthlyForm";
 
-interface PageProps {
-  searchParams: Promise<{ month?: string }>;
-}
-
-export default async function OretaMonthlyPage({ searchParams }: PageProps) {
+export default async function OretaMonthlyPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
@@ -26,66 +22,32 @@ export default async function OretaMonthlyPage({ searchParams }: PageProps) {
     );
   }
 
-  const resolvedParams = (await searchParams) || {};
-  const currentMonth = resolvedParams.month || getTodayString().slice(0, 7); // "YYYY-MM"
+  const currentMonth = getTodayString().slice(0, 7); // "YYYY-MM"
 
-  let existingEntry = null;
-  let historyEntries: any[] = [];
+  let todayEntries: any[] = [];
+  let history: any[] = [];
   try {
-    existingEntry = await prisma.oretaMonthlyEntry.findFirst({
+    todayEntries = await prisma.oretaMonthlyEntry.findMany({
       where: { month: currentMonth },
       orderBy: { createdAt: "desc" },
-      include: { submittedBy: { select: { name: true, email: true } } },
+      include: { submittedBy: { select: { name: true } } },
     });
 
-    historyEntries = await prisma.oretaMonthlyEntry.findMany({
-      orderBy: { month: "desc" },
-      take: 12,
-      include: { submittedBy: { select: { name: true, email: true } } },
+    history = await prisma.oretaMonthlyEntry.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 24,
+      include: { submittedBy: { select: { name: true } } },
     });
   } catch (err) {
     console.error("Error fetching oreta monthly entries:", err);
   }
 
-  const serializedEntry = existingEntry
-    ? {
-        id: existingEntry.id,
-        month: existingEntry.month,
-        supervisorName: existingEntry.supervisorName,
-        comments: existingEntry.comments,
-        correctiveAction: existingEntry.correctiveAction,
-        monthlyChecks: existingEntry.monthlyChecks,
-        submittedBy: existingEntry.submittedBy,
-        createdAt: existingEntry.createdAt.toISOString(),
-      }
-    : null;
-
-  const serializedHistory = historyEntries.map((h) => ({
-    id: h.id,
-    month: h.month,
-    supervisorName: h.supervisorName,
-    comments: h.comments,
-    correctiveAction: h.correctiveAction,
-    monthlyChecks: h.monthlyChecks,
-    submittedBy: h.submittedBy,
-    createdAt: h.createdAt.toISOString(),
-  }));
-
   return (
-    <div className="page-container">
-      <div className="page-header">
-        <div className="page-header-text">
-          <h1>🗓️ Oreta World — Monthly Maintenance & Deep Clean</h1>
-          <p>Shutters, Generator, AC Servicing & Commercial Refrigeration Deep Maintenance</p>
-        </div>
-      </div>
-
-      <OretaMonthlyForm
-        initialMonth={currentMonth}
-        existingEntry={serializedEntry}
-        history={serializedHistory}
-        currentUser={{ id: user.id, name: user.name, role: user.role }}
-      />
-    </div>
+    <OretaMonthlyForm
+      currentMonth={currentMonth}
+      todayEntries={JSON.parse(JSON.stringify(todayEntries))}
+      history={JSON.parse(JSON.stringify(history))}
+      userName={user.name}
+    />
   );
 }

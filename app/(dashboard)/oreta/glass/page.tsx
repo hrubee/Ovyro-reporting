@@ -1,14 +1,10 @@
 import { auth } from "@/lib/auth";
 import { prisma, ensureDbSchema } from "@/lib/db";
 import { redirect } from "next/navigation";
-import { getTodayString, hasSheetAccess } from "@/lib/permissions";
+import { getTodayString, formatDate, hasSheetAccess } from "@/lib/permissions";
 import OretaGlassForm from "./OretaGlassForm";
 
-interface PageProps {
-  searchParams: Promise<{ date?: string }>;
-}
-
-export default async function OretaGlassPage({ searchParams }: PageProps) {
+export default async function OretaGlassPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
@@ -26,66 +22,33 @@ export default async function OretaGlassPage({ searchParams }: PageProps) {
     );
   }
 
-  const resolvedParams = (await searchParams) || {};
-  const targetDate = resolvedParams.date || getTodayString();
+  const today = getTodayString();
 
-  let existingEntry = null;
-  let historyEntries: any[] = [];
+  let todayEntries: any[] = [];
+  let history: any[] = [];
   try {
-    existingEntry = await prisma.oretaGlassEntry.findFirst({
-      where: { date: targetDate },
+    todayEntries = await prisma.oretaGlassEntry.findMany({
+      where: { date: today },
       orderBy: { createdAt: "desc" },
-      include: { submittedBy: { select: { name: true, email: true } } },
+      include: { submittedBy: { select: { name: true } } },
     });
 
-    historyEntries = await prisma.oretaGlassEntry.findMany({
-      orderBy: { date: "desc" },
-      take: 15,
-      include: { submittedBy: { select: { name: true, email: true } } },
+    history = await prisma.oretaGlassEntry.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      include: { submittedBy: { select: { name: true } } },
     });
   } catch (err) {
     console.error("Error fetching oreta glass entries:", err);
   }
 
-  const serializedEntry = existingEntry
-    ? {
-        id: existingEntry.id,
-        date: existingEntry.date,
-        supervisorName: existingEntry.supervisorName,
-        comments: existingEntry.comments,
-        correctiveAction: existingEntry.correctiveAction,
-        glassChecks: existingEntry.glassChecks,
-        submittedBy: existingEntry.submittedBy,
-        createdAt: existingEntry.createdAt.toISOString(),
-      }
-    : null;
-
-  const serializedHistory = historyEntries.map((h) => ({
-    id: h.id,
-    date: h.date,
-    supervisorName: h.supervisorName,
-    comments: h.comments,
-    correctiveAction: h.correctiveAction,
-    glassChecks: h.glassChecks,
-    submittedBy: h.submittedBy,
-    createdAt: h.createdAt.toISOString(),
-  }));
-
   return (
-    <div className="page-container">
-      <div className="page-header">
-        <div className="page-header-text">
-          <h1>🪟 Oreta World — Glass Report</h1>
-          <p>Ground Floor & Mezzanine Floor Architectural Glass Cleaning & Inspection</p>
-        </div>
-      </div>
-
-      <OretaGlassForm
-        initialDate={targetDate}
-        existingEntry={serializedEntry}
-        history={serializedHistory}
-        currentUser={{ id: user.id, name: user.name, role: user.role }}
-      />
-    </div>
+    <OretaGlassForm
+      today={today}
+      todayLabel={formatDate(today)}
+      todayEntries={JSON.parse(JSON.stringify(todayEntries))}
+      history={JSON.parse(JSON.stringify(history))}
+      userName={user.name}
+    />
   );
 }

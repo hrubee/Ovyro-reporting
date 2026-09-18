@@ -160,41 +160,47 @@ export async function POST(
       }
       case "oreta-fridge": {
         const data = {
-          supervisedBy: body.supervisedBy || "",
-          fridgeChecks: typeof body.fridgeChecks === "string" ? body.fridgeChecks : JSON.stringify(body.fridgeChecks),
-          hygiene: body.hygiene || "",
+          supervisedBy: body.supervisorName || body.supervisedBy || "",
+          fridgeChecks: typeof (body.fridgeChecks || body.checks) === "string"
+            ? (body.fridgeChecks || body.checks)
+            : JSON.stringify(body.fridgeChecks || body.checks),
+          hygiene: body.hygiene || "Good",
           comments: body.comments || "",
           correctiveAction: body.correctiveAction || "",
         };
         if (id) {
           return NextResponse.json(await prisma.oretaFridgeEntry.update({ where: { id }, data }));
         }
-        return NextResponse.json(await prisma.oretaFridgeEntry.create({ data: { ...data, date, submittedById: user.id } }));
+        return NextResponse.json(await prisma.oretaFridgeEntry.create({ data: { ...data, date: date || new Date().toISOString().split("T")[0], submittedById: user.id } }));
       }
       case "oreta-glass": {
+        const rawGlass = body.glassChecks || body.locationChecks || body.checks;
         const data = {
-          locationChecks: typeof body.locationChecks === "string" ? body.locationChecks : JSON.stringify(body.locationChecks),
-          supervisorName: body.supervisorName || "",
+          locationChecks: typeof rawGlass === "string" ? rawGlass : JSON.stringify(rawGlass),
+          supervisorName: body.supervisorName || body.supervisedBy || "",
           comments: body.comments || "",
           correctiveAction: body.correctiveAction || "",
         };
         if (id) {
           return NextResponse.json(await prisma.oretaGlassEntry.update({ where: { id }, data }));
         }
-        return NextResponse.json(await prisma.oretaGlassEntry.create({ data: { ...data, date, submittedById: user.id } }));
+        return NextResponse.json(await prisma.oretaGlassEntry.create({ data: { ...data, date: date || new Date().toISOString().split("T")[0], submittedById: user.id } }));
       }
       case "oreta-monthly": {
+        const rawMonthly = body.monthlyChecks || body.taskChecks || body.checks;
+        const entryMonth = body.month || (date ? date.slice(0, 7) : new Date().toISOString().slice(0, 7));
+        const entryDate = date || `${entryMonth}-15`;
         const data = {
-          month: body.month || date?.slice(0, 7) || new Date().toISOString().slice(0, 7),
-          taskChecks: typeof body.taskChecks === "string" ? body.taskChecks : JSON.stringify(body.taskChecks),
-          supervisorName: body.supervisorName || "",
+          month: entryMonth,
+          taskChecks: typeof rawMonthly === "string" ? rawMonthly : JSON.stringify(rawMonthly),
+          supervisorName: body.supervisorName || body.supervisedBy || "",
           comments: body.comments || "",
           correctiveAction: body.correctiveAction || "",
         };
         if (id) {
           return NextResponse.json(await prisma.oretaMonthlyEntry.update({ where: { id }, data }));
         }
-        return NextResponse.json(await prisma.oretaMonthlyEntry.create({ data: { ...data, date, submittedById: user.id } }));
+        return NextResponse.json(await prisma.oretaMonthlyEntry.create({ data: { ...data, date: entryDate, submittedById: user.id } }));
       }
       default:
         return NextResponse.json({ error: "Unknown sheet" }, { status: 400 });

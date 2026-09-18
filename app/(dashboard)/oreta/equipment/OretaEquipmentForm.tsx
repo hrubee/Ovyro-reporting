@@ -1,440 +1,547 @@
 "use client";
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState } from "react";
 import { ORETA_EQUIPMENT_ITEMS, ORETA_STAFF } from "@/lib/outlets";
 import { SUPERVISORS } from "@/lib/permissions";
 
-interface EquipmentRow {
+interface EquipmentCheck {
   id: number;
-  name: string;
+  equipment: string;
   category: string;
-  status: "YES" | "NO" | "N/A";
+  yesNo: string;
   time: string;
-  cleanedBy: string;
-  checkedBy: string;
+  name: string;
 }
 
-interface ExistingEntry {
+interface EntryType {
   id: string;
   date: string;
+  equipmentChecks: string;
   supervisorName: string;
   comments: string;
   correctiveAction: string;
-  equipmentChecks: string;
-  submittedBy: { name: string; email: string };
+  submittedBy: { name: string };
   createdAt: string;
 }
 
 interface Props {
-  initialDate: string;
-  existingEntry: ExistingEntry | null;
-  currentUser: { id: string; name: string; role: string };
+  today: string;
+  todayLabel: string;
+  todayEntries: EntryType[];
+  history: EntryType[];
+  userName: string;
+}
+
+function getCurrentTimeString(): string {
+  const now = new Date();
+  const h = String(now.getHours()).padStart(2, "0");
+  const m = String(now.getMinutes()).padStart(2, "0");
+  return `${h}:${m}`;
 }
 
 export default function OretaEquipmentForm({
-  initialDate,
-  existingEntry,
-  currentUser,
+  today,
+  todayLabel,
+  todayEntries: initialTodayEntries,
+  history: initialHistory,
+  userName,
 }: Props) {
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const init: EquipmentCheck[] = ORETA_EQUIPMENT_ITEMS.map((item) => ({
+    id: item.id,
+    equipment: item.name,
+    category: item.category,
+    yesNo: "YES",
+    time: "11:00",
+    name: item.defaultCleanedBy,
+  }));
 
-  const [date, setDate] = useState(initialDate);
+  const [todayEntries, setTodayEntries] = useState<EntryType[]>(initialTodayEntries);
+  const [history, setHistory] = useState<EntryType[]>(initialHistory);
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(initialTodayEntries.length === 0);
+
+  const [checks, setChecks] = useState<EquipmentCheck[]>(init);
+  const [supervisorName, setSupervisorName] = useState(SUPERVISORS[0] || "Aboli Wagh");
+  const [comments, setComments] = useState("");
+  const [correctiveAction, setCorrectiveAction] = useState("");
   const [activeCategory, setActiveCategory] = useState<string>("all");
-
-  const buildInitialRows = (): EquipmentRow[] => {
-    if (existingEntry?.equipmentChecks) {
-      try {
-        const parsed = JSON.parse(existingEntry.equipmentChecks);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      } catch {}
-    }
-
-    return ORETA_EQUIPMENT_ITEMS.map((item) => ({
-      id: item.id,
-      name: item.name,
-      category: item.category,
-      status: "YES",
-      time: "11:00",
-      cleanedBy: item.defaultCleanedBy,
-      checkedBy: "Admin",
-    }));
-  };
-
-  const [rows, setRows] = useState<EquipmentRow[]>(buildInitialRows);
-  const [supervisorName, setSupervisorName] = useState(
-    existingEntry?.supervisorName || SUPERVISORS[0]
-  );
-  const [comments, setComments] = useState(existingEntry?.comments || "");
-  const [correctiveAction, setCorrectiveAction] = useState(
-    existingEntry?.correctiveAction || ""
-  );
-
-  const [saveSuccess, setSaveSuccess] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [alert, setAlert] = useState<{ type: "success" | "error"; msg: string } | null>(null);
+  const [selectedDate, setSelectedDate] = useState(today);
 
   const categories = Array.from(new Set(ORETA_EQUIPMENT_ITEMS.map((i) => i.category)));
 
-  const handleDateChange = (newDate: string) => {
-    setDate(newDate);
-    router.push(`/oreta/equipment?date=${newDate}`);
-  };
+  function startNewSubmission() {
+    setEditingId(null);
+    setChecks(init);
+    setSupervisorName(SUPERVISORS[0] || "Aboli Wagh");
+    setComments("");
+    setCorrectiveAction("");
+    setIsEditing(true);
+    setAlert(null);
+  }
 
-  const updateRow = (id: number, field: keyof EquipmentRow, value: any) => {
-    setRows((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, [field]: value } : r))
-    );
-  };
+  function startEditSubmission(entry: EntryType) {
+    setEditingId(entry.id);
+    try {
+      const parsed = JSON.parse(entry.equipmentChecks);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        // Normalize fields if from previous format
+        const normalized = parsed.map((p, idx) => {
+          const itemDef = ORETA_EQUIPMENT_ITEMS[idx] || { id: idx + 1, name: p.name || p.equipment || `Item ${idx + 1}`, category: p.category || "General", defaultCleanedBy: "Mangla" };
+          return {
+            id: p.id || itemDef.id,
+            equipment: p.equipment || p.name || itemDef.name,
+            category: p.category || itemDef.category,
+            yesNo: p.yesNo || p.status || "YES",
+            time: p.time || "11:00",
+            name: p.name || p.cleanedBy || itemDef.defaultCleanedBy,
+          };
+        });
+        setChecks(normalized);
+      } else {
+        setChecks(init);
+      }
+    } catch {
+      setChecks(init);
+    }
+    setSupervisorName(entry.supervisorName || SUPERVISORS[0] || "Aboli Wagh");
+    setComments(entry.comments || "");
+    setCorrectiveAction(entry.correctiveAction || "");
+    setIsEditing(true);
+    setAlert(null);
+  }
 
-  const setAllStatus = (status: "YES" | "NO" | "N/A") => {
-    setRows((prev) =>
-      prev.map((r) => {
-        if (activeCategory === "all" || r.category === activeCategory) {
-          return { ...r, status };
+  function update(idx: number, field: keyof EquipmentCheck, value: string | number) {
+    const copy = [...checks];
+    copy[idx] = { ...copy[idx], [field]: value };
+    setChecks(copy);
+  }
+
+  function markAllYes() {
+    const timeNow = getCurrentTimeString();
+    setChecks((prev) =>
+      prev.map((c) => {
+        if (activeCategory === "all" || c.category === activeCategory) {
+          return { ...c, yesNo: "YES", time: c.time || timeNow };
         }
-        return r;
+        return c;
       })
     );
-  };
+  }
 
-  const autoFillCleanedBy = () => {
-    const staffName = currentUser.name || "Staff";
-    setRows((prev) =>
-      prev.map((r) => {
-        if (activeCategory === "all" || r.category === activeCategory) {
-          return { ...r, cleanedBy: staffName };
+  function setAllCurrentTime() {
+    const timeNow = getCurrentTimeString();
+    setChecks((prev) =>
+      prev.map((c) => {
+        if (activeCategory === "all" || c.category === activeCategory) {
+          return { ...c, time: timeNow };
         }
-        return r;
+        return c;
       })
     );
-  };
+  }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  function assignAllTo(name: string) {
+    if (!name) return;
+    setChecks((prev) =>
+      prev.map((c) => {
+        if (activeCategory === "all" || c.category === activeCategory) {
+          return { ...c, name };
+        }
+        return c;
+      })
+    );
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setErrorMsg("");
-    setSaveSuccess(false);
-
-    startTransition(async () => {
-      try {
-        const payload = {
-          date,
-          equipmentChecks: JSON.stringify(rows),
+    setSaving(true);
+    setAlert(null);
+    try {
+      const res = await fetch("/api/entries/oreta-equipment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editingId,
+          date: today,
+          equipmentChecks: checks,
           supervisorName,
           comments,
           correctiveAction,
-        };
+        }),
+      });
+      if (res.ok) {
+        const saved: EntryType = await res.json();
+        const withSubmitter = { ...saved, submittedBy: { name: userName } };
 
-        const res = await fetch("/api/entries/oreta-equipment", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-
-        if (!res.ok) {
-          const data = await res.json();
-          throw new Error(data.error || "Failed to submit checklist");
+        if (editingId) {
+          setTodayEntries((prev) => prev.map((e) => (e.id === editingId ? withSubmitter : e)));
+          setHistory((prev) => prev.map((e) => (e.id === editingId ? withSubmitter : e)));
+          setAlert({ type: "success", msg: "✅ Equipment Cleaning report updated!" });
+        } else {
+          setTodayEntries((prev) => [withSubmitter, ...prev]);
+          setHistory((prev) => [withSubmitter, ...prev]);
+          setAlert({
+            type: "success",
+            msg: `✅ New Equipment report recorded at ${new Date(saved.createdAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}!`,
+          });
         }
-
-        setSaveSuccess(true);
-        setTimeout(() => setSaveSuccess(false), 4000);
-        router.refresh();
-      } catch (err: unknown) {
-        setErrorMsg(err instanceof Error ? err.message : "An error occurred");
+        setIsEditing(false);
+      } else {
+        const d = await res.json();
+        setAlert({ type: "error", msg: d.error || "Failed to save." });
       }
-    });
-  };
+    } catch {
+      setAlert({ type: "error", msg: "Network error. Please try again." });
+    }
+    setSaving(false);
+  }
 
-  const visibleRows = activeCategory === "all" ? rows : rows.filter((r) => r.category === activeCategory);
-  const totalCount = rows.length;
-  const passedCount = rows.filter((r) => r.status === "YES" || r.status === "N/A").length;
-  const compliance = Math.round((passedCount / totalCount) * 100);
+  const selectedDateEntries = history.filter((h) => h.date === selectedDate);
 
   return (
-    <form onSubmit={handleSubmit} className="fade-in">
-      {/* Top Date & Submission Status */}
-      <div className="form-card" style={{ marginBottom: "1.25rem" }}>
-        <div className="date-nav">
-          <div className="date-nav-controls">
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={() => {
-                const d = new Date(date + "T00:00:00");
-                d.setDate(d.getDate() - 1);
-                handleDateChange(d.toISOString().split("T")[0]);
-              }}
-            >
-              ← Prev
+    <div className="page-container fade-in">
+      <div className="page-header">
+        <div className="page-header-text">
+          <h1>⚙️ Oreta World Equipment Cleaning</h1>
+          <p>41-Item Kitchen, Beverage, Prep, Display & Facility Log — {todayLabel}</p>
+        </div>
+        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+          {!isEditing && (
+            <button className="btn btn-primary btn-sm" onClick={startNewSubmission}>
+              ➕ New Submission for Today
             </button>
+          )}
+        </div>
+      </div>
+
+      {alert && (
+        <div className={`alert alert-${alert.type}`} style={{ marginBottom: "1rem" }}>
+          {alert.msg}
+        </div>
+      )}
+
+      {/* TODAY'S SUBMISSIONS */}
+      {!isEditing && todayEntries.length > 0 && (
+        <div className="card" style={{ marginBottom: "1.5rem" }}>
+          <div className="card-header">
+            <div className="card-title">
+              📋 Today&apos;s Recorded Submissions ({todayEntries.length})
+            </div>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+            {todayEntries.map((entry, idx) => (
+              <div
+                key={entry.id}
+                style={{
+                  padding: "0.85rem 1rem",
+                  background: "var(--bg-input)",
+                  borderRadius: "8px",
+                  border: "1px solid var(--border)",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: "0.5rem",
+                }}
+              >
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: "0.9rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    <span className="badge badge-submitted">#{todayEntries.length - idx}</span>
+                    <span>Supervisor: <strong>{entry.supervisorName || "Aboli Wagh"}</strong></span>
+                  </div>
+                  <div style={{ fontSize: "0.78rem", color: "var(--text-muted)", marginTop: "2px" }}>
+                    ⏰ {new Date(entry.createdAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                    {entry.comments && ` • "${entry.comments}"`}
+                  </div>
+                </div>
+                <button className="btn btn-secondary btn-sm" onClick={() => startEditSubmission(entry)}>
+                  ✏️ View / Edit
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {isEditing && (
+        <form onSubmit={handleSubmit}>
+          <div className="card" style={{ marginBottom: "1.5rem" }}>
+            <div className="card-header">
+              <div className="card-title">
+                {editingId ? "✏️ Edit Oreta Equipment Report" : "➕ New Equipment Submission"}
+              </div>
+            </div>
+
+            {/* Category Filter Pills */}
+            <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", marginBottom: "1rem" }}>
+              <button
+                type="button"
+                className={`btn btn-sm ${activeCategory === "all" ? "btn-primary" : "btn-secondary"}`}
+                onClick={() => setActiveCategory("all")}
+              >
+                All (41)
+              </button>
+              {categories.map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  className={`btn btn-sm ${activeCategory === cat ? "btn-primary" : "btn-secondary"}`}
+                  onClick={() => setActiveCategory(cat)}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+
+            {/* 1-Tap Quick Action Bar */}
+            <div className="quick-action-bar">
+              <span>⚡ 1-Tap Quick Actions:</span>
+              <button type="button" className="btn btn-sm btn-secondary" onClick={markAllYes}>
+                ✅ Mark All YES
+              </button>
+              <button type="button" className="btn btn-sm btn-secondary" onClick={setAllCurrentTime}>
+                🕒 Set All Current Time
+              </button>
+              <div style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
+                <span style={{ fontSize: "0.72rem" }}>👤 Assign All:</span>
+                <select
+                  value=""
+                  onChange={(e) => assignAllTo(e.target.value)}
+                  style={{
+                    padding: "0.25rem 0.5rem",
+                    fontSize: "0.75rem",
+                    borderRadius: "4px",
+                    background: "var(--bg-card)",
+                    border: "1px solid var(--border)",
+                    color: "var(--text-primary)",
+                  }}
+                >
+                  <option value="" disabled>Select Staff</option>
+                  {ORETA_STAFF.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div style={{ overflowX: "auto" }}>
+              <table className="checklist-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: "35%" }}>Equipment / Item</th>
+                    <th style={{ width: "170px" }}>Status</th>
+                    <th style={{ width: "130px" }}>Time</th>
+                    <th>Cleaned By</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {checks.map((row, idx) => {
+                    if (activeCategory !== "all" && row.category !== activeCategory) {
+                      return null;
+                    }
+
+                    return (
+                      <tr key={row.id}>
+                        <td style={{ fontWeight: 600 }}>
+                          <div>
+                            <span>{row.equipment}</span>
+                            <span style={{ fontSize: "0.72rem", color: "var(--text-muted)", marginLeft: "0.5rem" }}>
+                              ({row.category})
+                            </span>
+                          </div>
+                          {row.yesNo && (
+                            <span
+                              style={{
+                                fontSize: "0.75rem",
+                                padding: "2px 8px",
+                                borderRadius: "99px",
+                                fontWeight: 700,
+                                background:
+                                  row.yesNo === "YES"
+                                    ? "rgba(16,185,129,0.15)"
+                                    : row.yesNo === "NO"
+                                    ? "rgba(239,68,68,0.15)"
+                                    : "rgba(148,163,184,0.15)",
+                                color:
+                                  row.yesNo === "YES"
+                                    ? "var(--success)"
+                                    : row.yesNo === "NO"
+                                    ? "var(--danger)"
+                                    : "var(--text-muted)",
+                              }}
+                            >
+                              {row.yesNo}
+                            </span>
+                          )}
+                        </td>
+                        <td>
+                          <div className="touch-btn-toggle">
+                            <button
+                              type="button"
+                              className={`touch-btn-option ${row.yesNo === "YES" ? "active-yes" : ""}`}
+                              onClick={() => update(idx, "yesNo", "YES")}
+                            >
+                              ✅ YES
+                            </button>
+                            <button
+                              type="button"
+                              className={`touch-btn-option ${row.yesNo === "NO" ? "active-no" : ""}`}
+                              onClick={() => update(idx, "yesNo", "NO")}
+                            >
+                              ❌ NO
+                            </button>
+                            <button
+                              type="button"
+                              className={`touch-btn-option ${row.yesNo === "N/A" ? "active-na" : ""}`}
+                              onClick={() => update(idx, "yesNo", "N/A")}
+                            >
+                              ⚪ N/A
+                            </button>
+                          </div>
+                        </td>
+                        <td>
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.25rem", width: "100%" }}>
+                            <input
+                              type="time"
+                              value={row.time}
+                              onChange={(e) => update(idx, "time", e.target.value)}
+                              style={{ flex: 1 }}
+                            />
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-secondary"
+                              style={{ padding: "0.45rem 0.5rem", fontSize: "0.75rem", minHeight: "44px" }}
+                              onClick={() => update(idx, "time", getCurrentTimeString())}
+                              title="Set current time"
+                            >
+                              Now
+                            </button>
+                          </div>
+                        </td>
+                        <td>
+                          <select
+                            value={row.name}
+                            onChange={(e) => update(idx, "name", e.target.value)}
+                          >
+                            <option value="">— Select Staff —</option>
+                            {ORETA_STAFF.map((s) => (
+                              <option key={s} value={s}>{s}</option>
+                            ))}
+                          </select>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="form-grid" style={{ marginTop: "1.25rem" }}>
+              <div className="form-group">
+                <label>Supervisor Verification</label>
+                <select
+                  value={supervisorName}
+                  onChange={(e) => setSupervisorName(e.target.value)}
+                  style={{ fontWeight: 600, color: "var(--accent)" }}
+                >
+                  {SUPERVISORS.map((sup) => (
+                    <option key={sup} value={sup}>{sup}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Comments / Observations</label>
+                <textarea
+                  value={comments}
+                  onChange={(e) => setComments(e.target.value)}
+                  placeholder="Any equipment remarks or cleaning observations..."
+                  rows={2}
+                />
+              </div>
+              <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+                <label>Corrective Action (if required)</label>
+                <textarea
+                  value={correctiveAction}
+                  onChange={(e) => setCorrectiveAction(e.target.value)}
+                  placeholder="Actions taken for items needing repair or maintenance..."
+                  rows={2}
+                />
+              </div>
+            </div>
+
+            <div className="form-actions" style={{ marginTop: "1.5rem" }}>
+              <button type="submit" className="btn btn-primary" disabled={saving}>
+                {saving ? "⏳ Saving..." : editingId ? "💾 Update Oreta Equipment Report" : "💾 Submit Oreta Equipment Report"}
+              </button>
+              {todayEntries.length > 0 && (
+                <button type="button" className="btn btn-secondary" onClick={() => setIsEditing(false)}>
+                  Cancel
+                </button>
+              )}
+            </div>
+          </div>
+        </form>
+      )}
+
+      {/* History Log */}
+      <div className="card">
+        <div className="card-header">
+          <div className="card-title">🕒 Oreta Equipment History Log</div>
+          <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+            <label style={{ fontSize: "0.82rem", color: "var(--text-muted)" }}>Date:</label>
             <input
               type="date"
-              value={date}
-              onChange={(e) => handleDateChange(e.target.value)}
-              className="form-control"
-              style={{ width: "auto", fontWeight: 700 }}
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              style={{ padding: "0.3rem 0.5rem", fontSize: "0.82rem", borderRadius: "6px", border: "1px solid var(--border)" }}
             />
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={() => {
-                const d = new Date(date + "T00:00:00");
-                d.setDate(d.getDate() + 1);
-                handleDateChange(d.toISOString().split("T")[0]);
-              }}
-            >
-              Next →
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={() => handleDateChange(new Date().toISOString().split("T")[0])}
-            >
-              Today
-            </button>
-          </div>
-
-          <div className={`submission-banner ${existingEntry ? "submitted" : "pending"}`} style={{ margin: 0 }}>
-            <span className="banner-dot" />
-            <span>
-              {existingEntry
-                ? `Submitted by ${existingEntry.submittedBy.name} (${new Date(
-                    existingEntry.createdAt
-                  ).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })})`
-                : "Not Submitted Yet Today"}
-            </span>
           </div>
         </div>
-      </div>
 
-      {/* Category Pills & Quick Actions */}
-      <div className="form-card" style={{ marginBottom: "1.25rem" }}>
-        <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: "0.75rem", alignItems: "center" }}>
-          {/* Categories */}
-          <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
-            <button
-              type="button"
-              className={`btn btn-sm ${activeCategory === "all" ? "btn-primary" : "btn-secondary"}`}
-              onClick={() => setActiveCategory("all")}
-            >
-              ⚙️ All Items ({totalCount})
-            </button>
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                type="button"
-                className={`btn btn-sm ${activeCategory === cat ? "btn-primary" : "btn-secondary"}`}
-                onClick={() => setActiveCategory(cat)}
-              >
-                {cat}
-              </button>
-            ))}
+        {selectedDateEntries.length === 0 ? (
+          <div className="empty-state">
+            <div className="empty-state-icon">📋</div>
+            <p>No equipment submissions found for {selectedDate}.</p>
           </div>
-
-          {/* Quick Actions */}
-          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={() => setAllStatus("YES")}
-              title="Set all visible items to YES"
-            >
-              ⚡ Set All YES
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={autoFillCleanedBy}
-              title="Assign my name to visible items"
-            >
-              👤 Fill My Name
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Equipment Table */}
-      <div className="table-wrapper" style={{ marginBottom: "1.5rem" }}>
-        <div className="table-header-title">
-          <span>⚙️ Oreta World Equipment Cleaning & Inspection</span>
-          <span className="badge badge-blue">41 Items · Compliance {compliance}%</span>
-        </div>
-
-        <table className="checklist-table">
-          <thead>
-            <tr>
-              <th style={{ width: "40px" }}>#</th>
-              <th style={{ minWidth: "180px" }}>Equipment / Item</th>
-              <th style={{ minWidth: "140px" }}>Category</th>
-              <th style={{ minWidth: "180px" }}>Status</th>
-              <th style={{ minWidth: "110px" }}>Time</th>
-              <th style={{ minWidth: "160px" }}>Cleaned By</th>
-              <th style={{ minWidth: "160px" }}>Checked By</th>
-            </tr>
-          </thead>
-          <tbody>
-            {visibleRows.map((row) => (
-              <tr key={row.id}>
-                <td className="item-cell" style={{ fontWeight: 700, color: "var(--text-muted)" }}>
-                  {row.id}
-                </td>
-                <td className="item-cell">
-                  <div style={{ fontWeight: 700, fontSize: "0.95rem" }}>{row.name}</div>
-                </td>
-                <td className="item-cell">
-                  <span className="badge" style={{ fontSize: "0.72rem", background: "var(--bg-primary)" }}>
-                    {row.category}
-                  </span>
-                </td>
-                <td className="touch-cell">
-                  <div className="touch-toggle-group">
-                    <button
-                      type="button"
-                      className={`touch-btn-option ${row.status === "YES" ? "active-yes" : ""}`}
-                      onClick={() => updateRow(row.id, "status", "YES")}
-                    >
-                      ✓ YES
-                    </button>
-                    <button
-                      type="button"
-                      className={`touch-btn-option ${row.status === "NO" ? "active-no" : ""}`}
-                      onClick={() => updateRow(row.id, "status", "NO")}
-                    >
-                      ✕ NO
-                    </button>
-                    <button
-                      type="button"
-                      className={`touch-btn-option ${row.status === "N/A" ? "active-na" : ""}`}
-                      onClick={() => updateRow(row.id, "status", "N/A")}
-                    >
-                      N/A
-                    </button>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+            {selectedDateEntries.map((entry) => {
+              let parsed: EquipmentCheck[] = [];
+              try { parsed = JSON.parse(entry.equipmentChecks); } catch {}
+              return (
+                <div
+                  key={entry.id}
+                  style={{
+                    border: "1px solid var(--border)",
+                    borderRadius: "8px",
+                    padding: "1rem",
+                    background: "var(--bg-input)",
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "0.5rem", marginBottom: "0.75rem" }}>
+                    <div>
+                      <strong>📅 {entry.date}</strong> · Submitted by <strong>{entry.submittedBy?.name || "Admin"}</strong>
+                    </div>
+                    <div style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>
+                      Supervisor: <strong>{entry.supervisorName || "—"}</strong>
+                    </div>
                   </div>
-                </td>
-                <td>
-                  <input
-                    type="text"
-                    value={row.time}
-                    onChange={(e) => updateRow(row.id, "time", e.target.value)}
-                    className="form-control"
-                    style={{ fontSize: "0.8rem", height: "32px", width: "90px" }}
-                  />
-                </td>
-                <td>
-                  <select
-                    value={row.cleanedBy}
-                    onChange={(e) => updateRow(row.id, "cleanedBy", e.target.value)}
-                    className="form-control"
-                    style={{ fontSize: "0.8rem", height: "32px", fontWeight: 600 }}
-                  >
-                    {ORETA_STAFF.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-                <td>
-                  <select
-                    value={row.checkedBy}
-                    onChange={(e) => updateRow(row.id, "checkedBy", e.target.value)}
-                    className="form-control"
-                    style={{ fontSize: "0.8rem", height: "32px" }}
-                  >
-                    {SUPERVISORS.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                    {ORETA_STAFF.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Supervisor Verification & Notes */}
-      <div className="form-card" style={{ marginBottom: "5rem" }}>
-        <div className="form-grid">
-          <div className="form-group">
-            <label className="form-label">Supervisor / Verifier Name</label>
-            <select
-              value={supervisorName}
-              onChange={(e) => setSupervisorName(e.target.value)}
-              className="form-control"
-            >
-              {SUPERVISORS.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-              {ORETA_STAFF.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">Comments / Equipment Observations</label>
-            <textarea
-              value={comments}
-              onChange={(e) => setComments(e.target.value)}
-              placeholder="e.g. Griller 1 deep-cleaned and descaled..."
-              rows={2}
-              className="form-control"
-            />
-          </div>
-
-          <div className="form-group" style={{ gridColumn: "1 / -1" }}>
-            <label className="form-label">Corrective Actions Taken (if any NO)</label>
-            <textarea
-              value={correctiveAction}
-              onChange={(e) => setCorrectiveAction(e.target.value)}
-              placeholder="e.g. Coffee machine 2 steam wand re-sanitized at 15:00..."
-              rows={2}
-              className="form-control"
-            />
-          </div>
-        </div>
-
-        {errorMsg && (
-          <div className="error-banner" style={{ marginTop: "1rem" }}>
-            ⚠️ {errorMsg}
-          </div>
-        )}
-        {saveSuccess && (
-          <div className="success-banner" style={{ marginTop: "1rem" }}>
-            ✓ Oreta World Equipment Cleaning log saved successfully!
+                  {entry.comments && (
+                    <div style={{ fontSize: "0.82rem", color: "var(--text-secondary)", marginBottom: "0.5rem" }}>
+                      💬 <em>&ldquo;{entry.comments}&rdquo;</em>
+                    </div>
+                  )}
+                  <div style={{ fontSize: "0.78rem", color: "var(--text-muted)" }}>
+                    Total Items Checked: {parsed.length}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
-
-      {/* Sticky Bottom Action Bar */}
-      <div className="form-actions">
-        <button
-          type="button"
-          className="btn btn-secondary"
-          onClick={() => setRows(buildInitialRows())}
-          disabled={isPending}
-        >
-          Reset
-        </button>
-        <button
-          type="submit"
-          className="btn btn-primary btn-lg"
-          disabled={isPending}
-          style={{ minWidth: "200px" }}
-        >
-          {isPending ? "Submitting..." : existingEntry ? "Update Equipment Log" : "Submit Equipment Log"}
-        </button>
-      </div>
-    </form>
+    </div>
   );
 }

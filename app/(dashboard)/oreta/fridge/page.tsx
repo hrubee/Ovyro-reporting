@@ -1,14 +1,10 @@
 import { auth } from "@/lib/auth";
 import { prisma, ensureDbSchema } from "@/lib/db";
 import { redirect } from "next/navigation";
-import { getTodayString, hasSheetAccess } from "@/lib/permissions";
+import { getTodayString, formatDate, hasSheetAccess } from "@/lib/permissions";
 import OretaFridgeForm from "./OretaFridgeForm";
 
-interface PageProps {
-  searchParams: Promise<{ date?: string }>;
-}
-
-export default async function OretaFridgePage({ searchParams }: PageProps) {
+export default async function OretaFridgePage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
@@ -26,68 +22,33 @@ export default async function OretaFridgePage({ searchParams }: PageProps) {
     );
   }
 
-  const resolvedParams = (await searchParams) || {};
-  const targetDate = resolvedParams.date || getTodayString();
+  const today = getTodayString();
 
-  let existingEntry = null;
-  let historyEntries: any[] = [];
+  let todayEntries: any[] = [];
+  let history: any[] = [];
   try {
-    existingEntry = await prisma.oretaFridgeEntry.findFirst({
-      where: { date: targetDate },
+    todayEntries = await prisma.oretaFridgeEntry.findMany({
+      where: { date: today },
       orderBy: { createdAt: "desc" },
-      include: { submittedBy: { select: { name: true, email: true } } },
+      include: { submittedBy: { select: { name: true } } },
     });
 
-    historyEntries = await prisma.oretaFridgeEntry.findMany({
-      orderBy: { date: "desc" },
-      take: 15,
-      include: { submittedBy: { select: { name: true, email: true } } },
+    history = await prisma.oretaFridgeEntry.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      include: { submittedBy: { select: { name: true } } },
     });
   } catch (err) {
     console.error("Error fetching oreta fridge entries:", err);
   }
 
-  const serializedEntry = existingEntry
-    ? {
-        id: existingEntry.id,
-        date: existingEntry.date,
-        supervisorName: existingEntry.supervisorName,
-        hygiene: existingEntry.hygiene,
-        comments: existingEntry.comments,
-        correctiveAction: existingEntry.correctiveAction,
-        fridgeChecks: existingEntry.fridgeChecks,
-        submittedBy: existingEntry.submittedBy,
-        createdAt: existingEntry.createdAt.toISOString(),
-      }
-    : null;
-
-  const serializedHistory = historyEntries.map((h) => ({
-    id: h.id,
-    date: h.date,
-    supervisorName: h.supervisorName,
-    hygiene: h.hygiene,
-    comments: h.comments,
-    correctiveAction: h.correctiveAction,
-    fridgeChecks: h.fridgeChecks,
-    submittedBy: h.submittedBy,
-    createdAt: h.createdAt.toISOString(),
-  }));
-
   return (
-    <div className="page-container">
-      <div className="page-header">
-        <div className="page-header-text">
-          <h1>🧊 Oreta World — Fridge & Display Temperature Log</h1>
-          <p>Daily Refrigeration, Freezer & Cake Display Monitoring (+2 to +10°C) with AM/PM Records</p>
-        </div>
-      </div>
-
-      <OretaFridgeForm
-        initialDate={targetDate}
-        existingEntry={serializedEntry}
-        history={serializedHistory}
-        currentUser={{ id: user.id, name: user.name, role: user.role }}
-      />
-    </div>
+    <OretaFridgeForm
+      today={today}
+      todayLabel={formatDate(today)}
+      todayEntries={JSON.parse(JSON.stringify(todayEntries))}
+      history={JSON.parse(JSON.stringify(history))}
+      userName={user.name}
+    />
   );
 }
