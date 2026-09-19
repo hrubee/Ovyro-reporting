@@ -3,6 +3,15 @@ import { prisma } from "@/lib/db";
 import { redirect } from "next/navigation";
 import OutletManagerClient from "./OutletManagerClient";
 
+function safeJson(val: any, fallback: any = []) {
+  if (typeof val !== "string") return val ?? fallback;
+  try {
+    return JSON.parse(val);
+  } catch {
+    return fallback;
+  }
+}
+
 export default async function AdminOutletsPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
@@ -12,7 +21,7 @@ export default async function AdminOutletsPage() {
     redirect("/dashboard");
   }
 
-  const [outlets, templates] = await Promise.all([
+  const [rawOutlets, templates] = await Promise.all([
     prisma.outlet.findMany({
       where: { organizationId: user.organizationId },
       orderBy: { createdAt: "asc" },
@@ -35,6 +44,11 @@ export default async function AdminOutletsPage() {
     }),
   ]);
 
+  const outlets = rawOutlets.map((o) => ({
+    ...o,
+    shifts: safeJson(o.shifts, ["Morning", "Evening"]),
+  }));
+
   return (
     <OutletManagerClient
       initialOutlets={JSON.parse(JSON.stringify(outlets))}
@@ -42,3 +56,4 @@ export default async function AdminOutletsPage() {
     />
   );
 }
+

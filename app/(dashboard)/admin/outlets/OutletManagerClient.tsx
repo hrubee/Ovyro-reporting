@@ -2,40 +2,50 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useOutlet } from "@/components/OutletContext";
 
 interface OutletManagerClientProps {
   initialOutlets: any[];
   allTemplates: Array<{ id: string; title: string; icon: string; category: string }>;
 }
 
+const FACILITY_ICONS = ["🏢", "🍽️", "🥐", "🍳", "🏭", "📦", "☕", "🍕", "🍔", "🏪", "🚚", "🥖"];
+
 export default function OutletManagerClient({
   initialOutlets,
   allTemplates,
 }: OutletManagerClientProps) {
   const router = useRouter();
+  const { refreshOutlets } = useOutlet();
   const [outlets, setOutlets] = useState<any[]>(initialOutlets);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingOutlet, setEditingOutlet] = useState<any | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successToast, setSuccessToast] = useState<string | null>(null);
 
   // Form state
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [type, setType] = useState("RESTAURANT");
-  const [icon, setIcon] = useState("📍");
+  const [icon, setIcon] = useState("🏢");
   const [address, setAddress] = useState("");
-  const [shiftsText, setShiftsText] = useState("Morning, Afternoon, Evening, Night");
+  const [shiftsText, setShiftsText] = useState("Morning, Evening");
   const [selectedTemplates, setSelectedTemplates] = useState<string[]>([]);
+
+  const showToast = (msg: string) => {
+    setSuccessToast(msg);
+    setTimeout(() => setSuccessToast(null), 4000);
+  };
 
   const handleOpenCreate = () => {
     setEditingOutlet(null);
     setName("");
     setCode("");
     setType("RESTAURANT");
-    setIcon("🏪");
+    setIcon("🏢");
     setAddress("");
-    setShiftsText("Morning, Afternoon, Evening, Night");
+    setShiftsText("Morning, Evening");
     setSelectedTemplates(allTemplates.map((t) => t.id));
     setError(null);
     setIsModalOpen(true);
@@ -46,7 +56,7 @@ export default function OutletManagerClient({
     setName(outlet.name);
     setCode(outlet.code || "");
     setType(outlet.type || "RESTAURANT");
-    setIcon(outlet.icon || "📍");
+    setIcon(outlet.icon || "🏢");
     setAddress(outlet.address || "");
     setShiftsText(Array.isArray(outlet.shifts) ? outlet.shifts.join(", ") : "Morning, Evening");
     setSelectedTemplates((outlet.outletTemplates || []).map((ot: any) => ot.templateId || ot.template?.id));
@@ -66,11 +76,11 @@ export default function OutletManagerClient({
 
     const payload = {
       id: editingOutlet?.id,
-      name,
-      code,
+      name: name.trim(),
+      code: code.trim() || null,
       type,
-      icon,
-      address,
+      icon: icon.trim() || "🏢",
+      address: address.trim(),
       shifts: shifts.length > 0 ? shifts : ["Morning", "Evening"],
       templateIds: selectedTemplates,
     };
@@ -88,14 +98,19 @@ export default function OutletManagerClient({
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Failed to save outlet");
 
+      showToast(editingOutlet ? `✓ "${name}" updated successfully!` : `✓ "${name}" created successfully!`);
       setIsModalOpen(false);
-      router.refresh();
 
+      // Refresh local list and global context
       const listRes = await fetch("/api/admin/outlets");
       if (listRes.ok) {
         const d = await listRes.json();
         setOutlets(d.outlets || []);
       }
+      if (refreshOutlets) {
+        await refreshOutlets();
+      }
+      router.refresh();
     } catch (err: any) {
       setError(err.message || "An error occurred");
     } finally {
@@ -103,13 +118,47 @@ export default function OutletManagerClient({
     }
   };
 
+  const handleDelete = async (id: string, outletName: string) => {
+    if (outlets.length <= 1) {
+      alert("Cannot delete the only facility. Your organization must have at least one active facility.");
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to delete facility "${outletName}"? All associated checklist assignments will be unlinked.`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/admin/outlets?id=${id}`, { method: "DELETE" });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Failed to delete outlet");
+
+      setOutlets((prev) => prev.filter((o) => o.id !== id));
+      showToast(`Facility "${outletName}" deleted.`);
+      if (refreshOutlets) {
+        await refreshOutlets();
+      }
+      router.refresh();
+    } catch (err: any) {
+      alert(err.message || "Failed to delete facility");
+    }
+  };
+
   return (
     <div className="admin-page-container">
+      {/* Toast */}
+      {successToast && (
+        <div className="notification-toast success">
+          <span>✓</span>
+          <span>{successToast}</span>
+        </div>
+      )}
+
       <div className="admin-header-row">
         <div>
           <h1 className="admin-page-title">Facilities & Outlets</h1>
           <p className="admin-page-subtitle">
-            Manage your physical locations, kitchens, retail stores, shift schedules, and checklist assignments.
+            Manage your physical locations, kitchens, retail stores, custom operational shifts, and checklist assignments.
           </p>
         </div>
         <button onClick={handleOpenCreate} className="btn-create-primary">
@@ -120,12 +169,12 @@ export default function OutletManagerClient({
       <div className="outlets-grid">
         {outlets.map((outlet) => {
           const tpls = outlet.outletTemplates || [];
-          const shifts = Array.isArray(outlet.shifts) ? outlet.shifts : [];
+          const shifts = Array.isArray(outlet.shifts) ? outlet.shifts : ["Morning", "Evening"];
 
           return (
             <div key={outlet.id} className="outlet-card">
               <div className="outlet-card-header">
-                <div className="outlet-icon-circle">{outlet.icon || "📍"}</div>
+                <div className="outlet-icon-circle">{outlet.icon || "🏢"}</div>
                 <div className="outlet-header-meta">
                   <span className="outlet-type-badge">{outlet.type}</span>
                   {outlet.code && <span className="outlet-code-badge">{outlet.code}</span>}
@@ -147,11 +196,15 @@ export default function OutletManagerClient({
               <div className="outlet-templates-section">
                 <div className="section-label">Active Checklists ({tpls.length})</div>
                 <div className="template-chips-wrap">
-                  {tpls.map((ot: any) => (
-                    <span key={ot.template?.id || ot.id} className="template-chip">
-                      {ot.template?.icon || "📋"} {ot.template?.title}
-                    </span>
-                  ))}
+                  {tpls.length === 0 ? (
+                    <span className="text-muted text-sm">No checklists assigned</span>
+                  ) : (
+                    tpls.map((ot: any) => (
+                      <span key={ot.template?.id || ot.id} className="template-chip">
+                        {ot.template?.icon || "📋"} {ot.template?.title}
+                      </span>
+                    ))
+                  )}
                 </div>
               </div>
 
@@ -165,19 +218,29 @@ export default function OutletManagerClient({
                   onClick={() => handleOpenEdit(outlet)}
                   className="btn-action-edit"
                 >
-                  ✏️ Edit Facility & Shifts
+                  ✏️ Edit Facility
                 </button>
+                {outlets.length > 1 && (
+                  <button
+                    onClick={() => handleDelete(outlet.id, outlet.name)}
+                    className="btn-action-delete"
+                    title="Delete Facility"
+                  >
+                    🗑️ Delete
+                  </button>
+                )}
               </div>
             </div>
           );
         })}
       </div>
 
+      {/* Modal */}
       {isModalOpen && (
         <div className="modal-backdrop">
           <div className="modal-card">
             <div className="modal-header">
-              <h2>{editingOutlet ? "Edit Facility" : "Add New Facility / Outlet"}</h2>
+              <h2>{editingOutlet ? `Edit: ${editingOutlet.name}` : "Add New Facility / Outlet"}</h2>
               <button onClick={() => setIsModalOpen(false)} className="modal-close-btn">
                 ✕
               </button>
@@ -193,7 +256,17 @@ export default function OutletManagerClient({
                     type="text"
                     required
                     value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    onChange={(e) => {
+                      setName(e.target.value);
+                      if (!editingOutlet && !code) {
+                        setCode(
+                          e.target.value
+                            .toUpperCase()
+                            .replace(/[^A-Z0-9]/g, "")
+                            .slice(0, 6)
+                        );
+                      }
+                    }}
                     placeholder="e.g. Downtown Central Kitchen"
                     className="form-input"
                   />
@@ -204,8 +277,8 @@ export default function OutletManagerClient({
                   <input
                     type="text"
                     value={code}
-                    onChange={(e) => setCode(e.target.value)}
-                    placeholder="e.g. MUM-02"
+                    onChange={(e) => setCode(e.target.value.toUpperCase())}
+                    placeholder="e.g. DT-01"
                     className="form-input"
                   />
                 </div>
@@ -229,13 +302,35 @@ export default function OutletManagerClient({
 
                 <div className="form-group">
                   <label>Icon Emoji</label>
-                  <input
-                    type="text"
-                    value={icon}
-                    onChange={(e) => setIcon(e.target.value)}
-                    placeholder="e.g. 🥐, 🍽️, ❄️"
-                    className="form-input"
-                  />
+                  <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                    <input
+                      type="text"
+                      value={icon}
+                      onChange={(e) => setIcon(e.target.value)}
+                      placeholder="e.g. 🏢"
+                      className="form-input"
+                      style={{ width: "70px", textAlign: "center", fontSize: "1.2rem" }}
+                    />
+                    <div style={{ display: "flex", gap: "3px", flexWrap: "wrap" }}>
+                      {FACILITY_ICONS.slice(0, 6).map((ic) => (
+                        <button
+                          key={ic}
+                          type="button"
+                          onClick={() => setIcon(ic)}
+                          style={{
+                            border: "1px solid #cbd5e1",
+                            background: icon === ic ? "#e2e8f0" : "white",
+                            borderRadius: "4px",
+                            padding: "2px 6px",
+                            cursor: "pointer",
+                            fontSize: "0.9rem",
+                          }}
+                        >
+                          {ic}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -245,7 +340,7 @@ export default function OutletManagerClient({
                   type="text"
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
-                  placeholder="Street address, city, unit number..."
+                  placeholder="Street address, unit number, city..."
                   className="form-input"
                 />
               </div>
@@ -260,31 +355,55 @@ export default function OutletManagerClient({
                   className="form-input"
                 />
                 <span className="field-hint">
-                  Defines shift handover and checklist schedule for this specific facility.
+                  Specifies shift handover and inspection logs for this outlet (e.g. Morning, Evening).
                 </span>
               </div>
 
               <div className="form-group">
-                <label>Assign Dynamic Checklists to this Facility</label>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
+                  <label style={{ margin: 0 }}>Assign Dynamic Checklists to this Facility</label>
+                  <div style={{ display: "flex", gap: "0.5rem", fontSize: "0.75rem" }}>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedTemplates(allTemplates.map((t) => t.id))}
+                      className="btn-link-small"
+                    >
+                      Select All
+                    </button>
+                    <span>•</span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedTemplates([])}
+                      className="btn-link-small"
+                    >
+                      Clear All
+                    </button>
+                  </div>
+                </div>
+
                 <div className="outlet-checkboxes-grid">
-                  {allTemplates.map((t) => (
-                    <label key={t.id} className="outlet-checkbox-item">
-                      <input
-                        type="checkbox"
-                        checked={selectedTemplates.includes(t.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedTemplates([...selectedTemplates, t.id]);
-                          } else {
-                            setSelectedTemplates(selectedTemplates.filter((id) => id !== t.id));
-                          }
-                        }}
-                      />
-                      <span>
-                        {t.icon} {t.title}
-                      </span>
-                    </label>
-                  ))}
+                  {allTemplates.length === 0 ? (
+                    <span className="text-muted text-sm">No templates created yet. You can create templates in the Template Builder.</span>
+                  ) : (
+                    allTemplates.map((t) => (
+                      <label key={t.id} className="outlet-checkbox-item">
+                        <input
+                          type="checkbox"
+                          checked={selectedTemplates.includes(t.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedTemplates([...selectedTemplates, t.id]);
+                            } else {
+                              setSelectedTemplates(selectedTemplates.filter((id) => id !== t.id));
+                            }
+                          }}
+                        />
+                        <span>
+                          {t.icon} {t.title}
+                        </span>
+                      </label>
+                    ))
+                  )}
                 </div>
               </div>
 
@@ -301,7 +420,7 @@ export default function OutletManagerClient({
                   disabled={saving}
                   className="btn-primary-save"
                 >
-                  {saving ? "Saving..." : editingOutlet ? "Update Facility" : "Add Facility"}
+                  {saving ? "Saving Facility..." : editingOutlet ? "Update Facility" : "Add Facility"}
                 </button>
               </div>
             </form>

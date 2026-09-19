@@ -98,9 +98,39 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Link creating user to the new outlet
+    const creatorId = (session.user as any).id;
+    if (creatorId) {
+      await prisma.userOutlet.upsert({
+        where: { userId_outletId: { userId: creatorId, outletId: outlet.id } },
+        update: {},
+        create: {
+          userId: creatorId,
+          outletId: outlet.id,
+          role: user.role,
+        },
+      });
+    }
+
+    const fullOutlet = await prisma.outlet.findUnique({
+      where: { id: outlet.id },
+      include: {
+        outletTemplates: {
+          include: {
+            template: {
+              select: { id: true, title: true, icon: true, category: true, slug: true },
+            },
+          },
+        },
+        _count: {
+          select: { submissions: true, userOutlets: true },
+        },
+      },
+    });
+
     return NextResponse.json({
       success: true,
-      outlet: { ...outlet, shifts: safeJson(outlet.shifts) },
+      outlet: { ...fullOutlet, shifts: safeJson(fullOutlet?.shifts) },
     });
   } catch (err: any) {
     console.error("Create outlet error:", err);
@@ -129,7 +159,7 @@ export async function PUT(req: NextRequest) {
 
     const updateData: any = {};
     if (name !== undefined) updateData.name = name;
-    if (code !== undefined) updateData.code = code;
+    if (code !== undefined) updateData.code = code || null;
     if (type !== undefined) updateData.type = type;
     if (address !== undefined) updateData.address = address;
     if (icon !== undefined) updateData.icon = icon;
@@ -157,11 +187,71 @@ export async function PUT(req: NextRequest) {
       }
     }
 
+    const fullOutlet = await prisma.outlet.findUnique({
+      where: { id: updated.id },
+      include: {
+        outletTemplates: {
+          include: {
+            template: {
+              select: { id: true, title: true, icon: true, category: true, slug: true },
+            },
+          },
+        },
+        _count: {
+          select: { submissions: true, userOutlets: true },
+        },
+      },
+    });
+
     return NextResponse.json({
       success: true,
-      outlet: { ...updated, shifts: safeJson(updated.shifts) },
+      outlet: { ...fullOutlet, shifts: safeJson(fullOutlet?.shifts) },
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || "Failed to update outlet" }, { status: 500 });
   }
 }
+
+export async function DELETE(req: NextRequest) {
+  const session = await auth();
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const user = session.user as { organizationId: string; role: string };
+  if (user.role !== "ORG_ADMIN" && user.role !== "SUPER_ADMIN" && user.role !== "ADMIN") {
+    return NextResponse.json({ error: "Forbidden: Admin access required" }, { status: 403 });
+  }
+
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+
+    if (!id) {
+      return NextResponse.json({ error: "Outlet id is required" }, { status: 400 });
+    }
+
+    // Check count of remaining active outlets
+    const count = await prisma.outlet.count({
+      where: { organizationId: user.organizationId, isActive: true },
+    });
+
+    if (count <= 1) {
+      return NextResponse.json(
+        { error: "Cannot delete the only facility. Your organization must have at least one active facility." },
+        { status: 400 }
+      );
+    }
+
+    // Delete mappings & outlet
+    await prisma.outletTemplate.deleteMany({ where: { outletId: id } });
+    await prisma.userOutlet.deleteMany({ where: { outletId: id } });
+    await prisma.formSubmission.deleteMany({ where: { outletId: id } });
+    await prisma.outlet.delete({ where: { id } });
+
+    return NextResponse.json({ success: true, message: "Facility deleted successfully" });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message || "Failed to delete facility" }, { status: 500 });
+  }
+}
+
