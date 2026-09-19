@@ -128,7 +128,7 @@ export async function getOutletTemplates(
 ): Promise<TemplateSummary[]> {
   try {
     const outletTemplates = await prisma.outletTemplate.findMany({
-      where: { outletId, isEnabled: true },
+      where: { outletId, isEnabled: true, template: { isArchived: false } },
       include: {
         template: {
           include: {
@@ -141,6 +141,7 @@ export async function getOutletTemplates(
 
     return outletTemplates
       .filter((ot) => {
+        if (!ot.template || ot.template.isArchived) return false;
         // If user is ORG_ADMIN or SUPER_ADMIN or SUPERVISOR, all templates are visible
         if (!userId || userRole === "ORG_ADMIN" || userRole === "SUPER_ADMIN" || userRole === "ADMIN" || userRole === "SUPERVISOR") {
           return true;
@@ -160,6 +161,7 @@ export async function getOutletTemplates(
         frequency: ot.template.frequency,
         schema: safeJsonParse(ot.template.schema, {}),
       }));
+
   } catch (err) {
     console.error("Error fetching outlet templates:", err);
     return [];

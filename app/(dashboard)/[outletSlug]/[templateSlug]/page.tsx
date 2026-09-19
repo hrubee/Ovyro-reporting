@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { redirect, notFound } from "next/navigation";
+import { resolveOrganizationId } from "@/lib/permissions";
 import DynamicFormRenderer from "@/components/DynamicFormRenderer";
 
 function safeJson(val: any, fallback: any = {}) {
@@ -31,40 +32,47 @@ export default async function DynamicSheetPage({ params }: PageProps) {
     organizationId: string;
   };
 
+  const organizationId = await resolveOrganizationId(user);
   const { outletSlug, templateSlug } = await params;
 
-  // Don't intercept admin / dashboard / api routes
+  // Don't intercept reserved routes
   if (["admin", "dashboard", "login", "api"].includes(outletSlug)) {
     notFound();
   }
 
   // Find outlet by id or code
-  const outlet = await prisma.outlet.findFirst({
+  let outlet = await prisma.outlet.findFirst({
     where: {
-      organizationId: user.organizationId,
+      organizationId,
       OR: [
         { id: outletSlug },
+        { code: outletSlug },
         { code: outletSlug.toUpperCase() },
-        { id: `outlet-${outletSlug}` },
       ],
+      isActive: true,
     },
   });
 
   if (!outlet) {
-    // If not found by direct ID, look up first outlet
-    const firstOutlet = await prisma.outlet.findFirst({
-      where: { organizationId: user.organizationId },
+    // If not found by direct ID, fallback to first active outlet
+    outlet = await prisma.outlet.findFirst({
+      where: { organizationId, isActive: true },
     });
-    if (!firstOutlet) notFound();
+    if (!outlet) notFound();
   }
 
-  const activeOutlet = outlet || (await prisma.outlet.findFirst({ where: { organizationId: user.organizationId } }))!;
+  const activeOutlet = outlet;
 
-  // Find template by slug
+  // Find template by slug or ID
+  const cleanSlug = decodeURIComponent(templateSlug).toLowerCase().trim();
   const template = await prisma.formTemplate.findFirst({
     where: {
-      organizationId: user.organizationId,
-      slug: templateSlug,
+      organizationId,
+      OR: [
+        { slug: templateSlug },
+        { slug: cleanSlug },
+        { id: templateSlug },
+      ],
       isArchived: false,
     },
   });
@@ -75,7 +83,7 @@ export default async function DynamicSheetPage({ params }: PageProps) {
 
   // Get active staff for this organization/outlet
   const staff = await prisma.user.findMany({
-    where: { organizationId: user.organizationId, isActive: true },
+    where: { organizationId, isActive: true },
     select: { name: true },
   });
 
@@ -115,4 +123,5 @@ export default async function DynamicSheetPage({ params }: PageProps) {
     </div>
   );
 }
+
 

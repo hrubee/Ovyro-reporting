@@ -27,6 +27,10 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: "asc" },
       include: {
         outletTemplates: {
+          where: {
+            isEnabled: true,
+            template: { isArchived: false },
+          },
           include: {
             template: {
               select: { id: true, title: true, icon: true, category: true, slug: true },
@@ -38,6 +42,7 @@ export async function GET(req: NextRequest) {
         },
       },
     });
+
 
     const parsed = outlets.map((o) => ({
       ...o,

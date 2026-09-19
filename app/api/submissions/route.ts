@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
+import { resolveOrganizationId, resolveUserId } from "@/lib/permissions";
 
 function safeJson(val: any, fallback: any = {}) {
   if (typeof val !== "string") return val ?? fallback;
@@ -21,7 +22,11 @@ export async function POST(req: NextRequest) {
     id: string;
     organizationId: string;
     role: string;
+    email?: string;
   };
+
+  const organizationId = await resolveOrganizationId(user);
+  const validUserId = (await resolveUserId(user)) || user.id;
 
   try {
     const body = await req.json();
@@ -49,7 +54,7 @@ export async function POST(req: NextRequest) {
     }
 
     const template = await prisma.formTemplate.findFirst({
-      where: { id: templateId, organizationId: user.organizationId },
+      where: { id: templateId, organizationId },
     });
 
     if (!template) {
@@ -60,7 +65,7 @@ export async function POST(req: NextRequest) {
 
     if (id) {
       const existing = await prisma.formSubmission.findFirst({
-        where: { id, organizationId: user.organizationId },
+        where: { id, organizationId },
       });
 
       if (!existing) {
@@ -91,7 +96,7 @@ export async function POST(req: NextRequest) {
     // Check if duplicate for same date, shift and template
     const existingSameShift = await prisma.formSubmission.findFirst({
       where: {
-        organizationId: user.organizationId,
+        organizationId,
         outletId,
         templateId,
         date,
@@ -122,13 +127,13 @@ export async function POST(req: NextRequest) {
 
     const created = await prisma.formSubmission.create({
       data: {
-        organizationId: user.organizationId,
+        organizationId,
         outletId,
         templateId,
         templateVersion: template.version,
         date,
         shift: shift || null,
-        submittedById: user.id,
+        submittedById: validUserId,
         supervisorName: supervisorName || "",
         supervisorSigned: !!supervisorSigned,
         signatureData: signatureData || null,
@@ -160,7 +165,10 @@ export async function GET(req: NextRequest) {
     id: string;
     organizationId: string;
     role: string;
+    email?: string;
   };
+
+  const organizationId = await resolveOrganizationId(user);
 
   const { searchParams } = new URL(req.url);
   const outletId = searchParams.get("outletId");
@@ -171,7 +179,7 @@ export async function GET(req: NextRequest) {
   const limit = parseInt(searchParams.get("limit") || "60", 10);
 
   try {
-    const where: any = { organizationId: user.organizationId };
+    const where: any = { organizationId };
 
     if (outletId) where.outletId = outletId;
     if (templateId) where.templateId = templateId;
@@ -211,3 +219,4 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: err.message || "Failed to fetch submissions" }, { status: 500 });
   }
 }
+

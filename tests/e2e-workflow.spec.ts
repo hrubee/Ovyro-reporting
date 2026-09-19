@@ -75,10 +75,25 @@ test.describe('Reporting SaaS End-to-End Workflow', () => {
     // Verify it is removed from UI
     await expect(page.locator(`.template-card:has-text("${toDeleteTabName}")`)).not.toBeVisible();
 
-    // 6. Test Reports Hub (/admin/reports)
+    // 6. Test Navigation to an Assigned Report Tab Sheet (Verify NO 404)
+    await page.goto('/dashboard');
+    await page.waitForTimeout(500);
+
+    // Click on the first active report tab link
+    const firstChecklistLink = page.locator('.checklist-card').first();
+    if (await firstChecklistLink.isVisible()) {
+      await firstChecklistLink.click();
+      // Ensure form rendered and no 404 error
+      await expect(page.locator('.dynamic-sheet-page')).toBeVisible();
+      await expect(page.locator('button.btn-primary-save')).toBeVisible();
+    }
+
+    // 7. Test Reports Hub (/admin/reports)
     await page.goto('/admin/reports');
     await expect(page.locator('.admin-page-title')).toContainText(/Audit Reports/i);
     await expect(page.locator('button:has-text("Export to CSV")')).toBeVisible();
   });
 });
+
+
 
