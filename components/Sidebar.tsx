@@ -107,13 +107,13 @@ export default function Sidebar({ user, sheetStatuses = {} }: SidebarProps) {
 
           {/* Active Outlet Checklists / Sheets */}
           <div className="nav-section-title">
-            <span>{activeOutlet?.name || "Active"} Checklists</span>
+            <span>{activeOutlet?.name || "Active"} Report Tabs</span>
           </div>
 
           {loading ? (
-            <div className="sidebar-loading-item">Loading templates...</div>
+            <div className="sidebar-loading-item">Loading report tabs...</div>
           ) : templates.length === 0 ? (
-            <div className="sidebar-empty-hint">No checklists assigned</div>
+            <div className="sidebar-empty-hint">No report tabs assigned</div>
           ) : (
             templates.map((tpl) => {
               const route = `/${activeOutlet?.id}/${tpl.slug}`;
@@ -143,8 +143,8 @@ export default function Sidebar({ user, sheetStatuses = {} }: SidebarProps) {
                 className={`nav-item ${pathname.startsWith("/admin/templates") ? "active" : ""}`}
                 onClick={() => setMobileOpen(false)}
               >
-                <span className="nav-icon">🛠️</span>
-                Template Builder
+                <span className="nav-icon">📑</span>
+                Report Tabs
               </Link>
               <Link
                 href="/admin/outlets"
@@ -154,6 +154,7 @@ export default function Sidebar({ user, sheetStatuses = {} }: SidebarProps) {
                 <span className="nav-icon">🏢</span>
                 Outlets & Facilities
               </Link>
+
               <Link
                 href="/admin/users"
                 className={`nav-item ${pathname.startsWith("/admin/users") ? "active" : ""}`}

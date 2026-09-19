@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
-import { userHasPermission } from "@/lib/permissions";
+import { userHasPermission, resolveOrganizationId } from "@/lib/permissions";
 
 function safeJson(val: any, fallback: any = {}) {
   if (typeof val !== "string") return val ?? fallback;
@@ -21,12 +21,13 @@ export async function GET(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const user = session.user as { organizationId: string; role: string; permissions?: string[] };
+  const user = session.user as { organizationId: string; role: string; permissions?: string[]; email?: string };
+  const organizationId = await resolveOrganizationId(user);
   const { id } = await params;
 
   try {
     const template = await prisma.formTemplate.findFirst({
-      where: { id, organizationId: user.organizationId },
+      where: { id, organizationId },
       include: {
         outletTemplates: {
           select: { outletId: true, isEnabled: true },
@@ -35,7 +36,7 @@ export async function GET(
     });
 
     if (!template) {
-      return NextResponse.json({ error: "Template not found" }, { status: 404 });
+      return NextResponse.json({ error: "Report tab not found" }, { status: 404 });
     }
 
     return NextResponse.json({
@@ -58,7 +59,7 @@ export async function PUT(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const user = session.user as { organizationId: string; role: string; permissions?: string[] };
+  const user = session.user as { organizationId: string; role: string; permissions?: string[]; email?: string };
   const canManage =
     user.role === "ORG_ADMIN" ||
     user.role === "SUPER_ADMIN" ||
@@ -66,19 +67,20 @@ export async function PUT(
     userHasPermission(user.permissions, "manage_templates", user.role);
 
   if (!canManage) {
-    return NextResponse.json({ error: "Forbidden: Manage templates permission required" }, { status: 403 });
+    return NextResponse.json({ error: "Forbidden: Manage Report Tabs permission required" }, { status: 403 });
   }
 
+  const organizationId = await resolveOrganizationId(user);
   const { id } = await params;
   const body = await req.json();
 
   try {
     const existing = await prisma.formTemplate.findFirst({
-      where: { id, organizationId: user.organizationId },
+      where: { id, organizationId },
     });
 
     if (!existing) {
-      return NextResponse.json({ error: "Template not found" }, { status: 404 });
+      return NextResponse.json({ error: "Report tab not found" }, { status: 404 });
     }
 
     const { title, icon, description, frequency, category, schema, outletIds } = body;
@@ -106,14 +108,22 @@ export async function PUT(
     // Update outlet assignments if provided
     if (Array.isArray(outletIds)) {
       await prisma.outletTemplate.deleteMany({ where: { templateId: id } });
+      const validOutlets = await prisma.outlet.findMany({
+        where: { id: { in: outletIds }, organizationId },
+        select: { id: true },
+      });
+      const validOutletIds = new Set(validOutlets.map((o) => o.id));
+
       for (const oId of outletIds) {
-        await prisma.outletTemplate.create({
-          data: {
-            outletId: oId,
-            templateId: id,
-            isEnabled: true,
-          },
-        });
+        if (validOutletIds.has(oId)) {
+          await prisma.outletTemplate.create({
+            data: {
+              outletId: oId,
+              templateId: id,
+              isEnabled: true,
+            },
+          });
+        }
       }
     }
 
@@ -125,8 +135,8 @@ export async function PUT(
       },
     });
   } catch (err: any) {
-    console.error("Update template error:", err);
-    return NextResponse.json({ error: err.message || "Failed to update template" }, { status: 500 });
+    console.error("Update report tab error:", err);
+    return NextResponse.json({ error: err.message || "Failed to update report tab" }, { status: 500 });
   }
 }
 
@@ -139,7 +149,7 @@ export async function DELETE(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const user = session.user as { organizationId: string; role: string; permissions?: string[] };
+  const user = session.user as { organizationId: string; role: string; permissions?: string[]; email?: string };
   const canManage =
     user.role === "ORG_ADMIN" ||
     user.role === "SUPER_ADMIN" ||
@@ -147,19 +157,28 @@ export async function DELETE(
     userHasPermission(user.permissions, "manage_templates", user.role);
 
   if (!canManage) {
-    return NextResponse.json({ error: "Forbidden: Manage templates permission required" }, { status: 403 });
+    return NextResponse.json({ error: "Forbidden: Manage Report Tabs permission required" }, { status: 403 });
   }
 
+  const organizationId = await resolveOrganizationId(user);
   const { id } = await params;
 
   try {
-    await prisma.formTemplate.updateMany({
-      where: { id, organizationId: user.organizationId },
-      data: { isArchived: true },
+    // 1. Delete associated outlet links
+    await prisma.outletTemplate.deleteMany({ where: { templateId: id } });
+    // 2. Delete user template access links
+    await prisma.userTemplateAccess.deleteMany({ where: { templateId: id } });
+    // 3. Delete form submissions for this template
+    await prisma.formSubmission.deleteMany({ where: { templateId: id } });
+    // 4. Delete the template itself
+    await prisma.formTemplate.deleteMany({
+      where: { id, organizationId },
     });
 
-    return NextResponse.json({ success: true, message: "Template archived" });
+    return NextResponse.json({ success: true, message: "Report Tab deleted successfully" });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message || "Failed to delete" }, { status: 500 });
+    console.error("Delete report tab error:", err);
+    return NextResponse.json({ error: err.message || "Failed to delete report tab" }, { status: 500 });
   }
 }
+

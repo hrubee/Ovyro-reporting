@@ -194,10 +194,10 @@ export default function OutletManagerClient({
               </div>
 
               <div className="outlet-templates-section">
-                <div className="section-label">Active Checklists ({tpls.length})</div>
+                <div className="section-label">Active Report Tabs ({tpls.length})</div>
                 <div className="template-chips-wrap">
                   {tpls.length === 0 ? (
-                    <span className="text-muted text-sm">No checklists assigned</span>
+                    <span className="text-muted text-sm">No report tabs assigned</span>
                   ) : (
                     tpls.map((ot: any) => (
                       <span key={ot.template?.id || ot.id} className="template-chip">
@@ -361,7 +361,7 @@ export default function OutletManagerClient({
 
               <div className="form-group">
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
-                  <label style={{ margin: 0 }}>Assign Dynamic Checklists to this Facility</label>
+                  <label style={{ margin: 0 }}>Assign Report Tabs to this Facility</label>
                   <div style={{ display: "flex", gap: "0.5rem", fontSize: "0.75rem" }}>
                     <button
                       type="button"
@@ -383,7 +383,7 @@ export default function OutletManagerClient({
 
                 <div className="outlet-checkboxes-grid">
                   {allTemplates.length === 0 ? (
-                    <span className="text-muted text-sm">No templates created yet. You can create templates in the Template Builder.</span>
+                    <span className="text-muted text-sm">No report tabs created yet. You can create report tabs in the Report Tabs Manager.</span>
                   ) : (
                     allTemplates.map((t) => (
                       <label key={t.id} className="outlet-checkbox-item">
@@ -406,6 +406,7 @@ export default function OutletManagerClient({
                   )}
                 </div>
               </div>
+
 
               <div className="modal-actions-bar">
                 <button

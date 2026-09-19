@@ -1,11 +1,12 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Reporting SaaS End-to-End Workflow', () => {
-  test('User can log in, view dashboard, manage outlets, and build templates', async ({ page }) => {
+  test('User can log in, view dashboard, manage outlets, and build/delete report tabs', async ({ page }) => {
     const timestamp = Date.now().toString().slice(-4);
     const testOutletName = `Skyline Kitchen ${timestamp}`;
     const testOutletCode = `SKY-${timestamp}`;
-    const testTemplateName = `Pastry Chiller Temp ${timestamp}`;
+    const testTabName = `Pastry Chiller Temp ${timestamp}`;
+    const toDeleteTabName = `Temp Tab To Delete ${timestamp}`;
 
     // 1. Visit Login Page
     await page.goto('/login');
@@ -37,21 +38,42 @@ test.describe('Reporting SaaS End-to-End Workflow', () => {
     // Verify new facility card is rendered
     await expect(page.locator(`.outlet-card:has-text("${testOutletName}")`)).toBeVisible();
 
-    // 5. Test Template Builder (/admin/templates)
+    // 5. Test Report Tabs Manager (/admin/templates)
     await page.goto('/admin/templates');
-    await expect(page.locator('.admin-page-title')).toContainText(/Dynamic Template Builder/i);
+    await expect(page.locator('.admin-page-title')).toContainText(/Report Tabs/i);
 
-    // Click "Create New Template"
-    await page.click('button:has-text("Create New Template")');
-    await expect(page.locator('.modal-card h2')).toContainText(/Create New Dynamic Template/i);
+    // Create Report Tab 1
+    await page.click('button:has-text("Create New Report Tab")');
+    await expect(page.locator('.modal-card h2')).toContainText(/Create New Report Tab/i);
 
     // Test preset button (e.g. Temperature)
     await page.click('button.preset-btn:has-text("TEMPERATURE")');
-    await page.fill('input[placeholder*="e.g. Cold Chain Storage Log"]', testTemplateName);
-    await page.click('button[type="submit"]:has-text("Create Template")');
+    await page.fill('input[placeholder*="e.g. Cold Chain Storage Log"]', testTabName);
+    await page.click('button[type="submit"]:has-text("Create Report Tab")');
 
-    // Verify new template card is rendered
-    await expect(page.locator(`.template-card:has-text("${testTemplateName}")`)).toBeVisible();
+    // Verify new Report Tab card is rendered
+    await expect(page.locator(`.template-card:has-text("${testTabName}")`)).toBeVisible();
+
+    // Create Report Tab 2 (to test deletion)
+    await page.click('button:has-text("Create New Report Tab")');
+    await page.click('button.preset-btn:has-text("EQUIPMENT")');
+    await page.fill('input[placeholder*="e.g. Cold Chain Storage Log"]', toDeleteTabName);
+    await page.click('button[type="submit"]:has-text("Create Report Tab")');
+
+    // Verify created
+    await expect(page.locator(`.template-card:has-text("${toDeleteTabName}")`)).toBeVisible();
+
+    // Accept browser confirmation dialog for deletion
+    page.on('dialog', async (dialog) => {
+      await dialog.accept();
+    });
+
+    // Click Delete on the second report tab card
+    const deleteBtn = page.locator(`.template-card:has-text("${toDeleteTabName}") button:has-text("Delete")`);
+    await deleteBtn.click();
+
+    // Verify it is removed from UI
+    await expect(page.locator(`.template-card:has-text("${toDeleteTabName}")`)).not.toBeVisible();
 
     // 6. Test Reports Hub (/admin/reports)
     await page.goto('/admin/reports');
@@ -59,3 +81,4 @@ test.describe('Reporting SaaS End-to-End Workflow', () => {
     await expect(page.locator('button:has-text("Export to CSV")')).toBeVisible();
   });
 });
+

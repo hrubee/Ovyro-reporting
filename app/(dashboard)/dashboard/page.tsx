@@ -169,16 +169,16 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         {/* Left: Active Checklists for the Selected Outlet */}
         <div className="dashboard-left-col">
           <div className="section-title-bar">
-            <h2>Today's Checklists & SOPs</h2>
-            <span className="sub-hint">Click any sheet to fill or update today's logs</span>
+            <h2>Today's Report Tabs & SOPs</h2>
+            <span className="sub-hint">Click any report tab to record or update today's logs</span>
           </div>
 
           <div className="checklists-cards-grid">
             {outletTemplates.length === 0 ? (
               <div className="empty-card">
-                <p>No checklists assigned to {currentOutlet.name}.</p>
+                <p>No report tabs assigned to {currentOutlet.name}.</p>
                 <Link href="/admin/templates" className="btn-secondary-link">
-                  Manage Checklists in Admin Console
+                  Manage Report Tabs in Admin Console
                 </Link>
               </div>
             ) : (

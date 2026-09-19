@@ -514,7 +514,7 @@ export default function UsersClient({
 
               {/* Specific Template Access Checkboxes */}
               <div className="form-group">
-                <label>Allowed Dynamic Checklists & SOPs</label>
+                <label>Allowed Report Tabs & Checklists</label>
                 <div className="outlet-checkboxes-grid">
                   {templates.map((t) => (
                     <label key={t.id} className="outlet-checkbox-item">

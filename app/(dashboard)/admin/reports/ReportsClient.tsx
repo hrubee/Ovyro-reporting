@@ -167,13 +167,13 @@ export default function ReportsClient({
         </div>
 
         <div className="filter-item">
-          <label>Checklist Template</label>
+          <label>Report Tab</label>
           <select
             value={selectedTemplate}
             onChange={(e) => setSelectedTemplate(e.target.value)}
             className="filter-select"
           >
-            <option value="all">All Checklists</option>
+            <option value="all">All Report Tabs</option>
             {templates.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.icon} {t.title}

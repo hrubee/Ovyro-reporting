@@ -451,16 +451,23 @@ export default function TemplateManagerClient({
   };
 
   const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to archive template "${name}"?`)) return;
+    if (!confirm(`Are you sure you want to delete Report Tab "${name}"? All associated checklist assignments will be removed.`)) return;
     try {
       const res = await fetch(`/api/admin/templates/${id}`, { method: "DELETE" });
-      if (res.ok) {
-        setTemplates((prev) => prev.filter((t) => t.id !== id));
-        showToast(`Template "${name}" archived.`);
-        router.refresh();
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Failed to delete report tab");
+
+      setTemplates((prev) => prev.filter((t) => t.id !== id));
+      showToast(`✓ Report Tab "${name}" deleted.`);
+
+      const listRes = await fetch("/api/admin/templates");
+      if (listRes.ok) {
+        const d = await listRes.json();
+        setTemplates(d.templates || []);
       }
-    } catch (e) {
-      console.error(e);
+      router.refresh();
+    } catch (e: any) {
+      alert(e.message || "Failed to delete report tab");
     }
   };
 
@@ -477,70 +484,84 @@ export default function TemplateManagerClient({
       {/* Header */}
       <div className="admin-header-row">
         <div>
-          <h1 className="admin-page-title">Dynamic Template Builder</h1>
+          <h1 className="admin-page-title">Report Tabs</h1>
           <p className="admin-page-subtitle">
-            Configure custom inspection checklists, multi-shift SOPs, HACCP cold chain temperature tolerances and maintenance schedules.
+            Configure custom Report Tabs (checklists, equipment logs, temperature logs, hygiene SOPs) assigned across your outlets.
           </p>
         </div>
         <button onClick={handleOpenCreate} className="btn-create-primary">
-          <span>➕</span> Create New Template
+          <span>➕</span> Create New Report Tab
         </button>
       </div>
 
-      {/* Templates Grid */}
+      {/* Templates / Report Tabs Grid */}
       <div className="templates-grid">
-        {templates.map((tpl) => {
-          const assignedCount = (tpl.outletTemplates || []).length;
-          const parsed = safeJson(tpl.schema, {});
-          const totalItems = (parsed.sections || []).reduce(
-            (acc: number, s: any) => acc + (s.items || []).length,
-            0
-          );
+        {templates.length === 0 ? (
+          <div className="empty-state-card" style={{ gridColumn: "1 / -1", textAlign: "center", padding: "3rem" }}>
+            <span style={{ fontSize: "2.5rem" }}>📑</span>
+            <h3 style={{ margin: "1rem 0 0.5rem" }}>No Report Tabs Configured</h3>
+            <p style={{ color: "#64748b", marginBottom: "1.5rem" }}>
+              Get started by creating your first Report Tab or choosing a quick-start preset.
+            </p>
+            <button onClick={handleOpenCreate} className="btn-create-primary" style={{ display: "inline-flex" }}>
+              <span>➕</span> Create New Report Tab
+            </button>
+          </div>
+        ) : (
+          templates.map((tpl) => {
+            const assignedCount = (tpl.outletTemplates || []).length;
+            const parsed = safeJson(tpl.schema, {});
+            const totalItems = (parsed.sections || []).reduce(
+              (acc: number, s: any) => acc + (s.items || []).length,
+              0
+            );
 
-          return (
-            <div key={tpl.id} className="template-card">
-              <div className="template-card-header">
-                <div className="template-icon-circle">{tpl.icon || "📋"}</div>
-                <div className="template-badges">
-                  <span className="badge-category">{tpl.category}</span>
-                  <span className="badge-freq">{tpl.frequency}</span>
+            return (
+              <div key={tpl.id} className="template-card">
+                <div className="template-card-header">
+                  <div className="template-icon-circle">{tpl.icon || "📋"}</div>
+                  <div className="template-badges">
+                    <span className="badge-category">{tpl.category}</span>
+                    <span className="badge-freq">{tpl.frequency}</span>
+                  </div>
+                </div>
+
+                <h3 className="template-title">{tpl.title}</h3>
+                <p className="template-desc">{tpl.description || "No description provided."}</p>
+
+                <div className="template-meta-row">
+                  <span className="meta-item">
+                    🏢 {assignedCount} {assignedCount === 1 ? "Outlet" : "Outlets"}
+                  </span>
+                  <span className="meta-item">
+                    📋 {totalItems} {totalItems === 1 ? "Item" : "Items"}
+                  </span>
+                  <span className="meta-item">
+                    📝 {tpl._count?.submissions || 0} Records
+                  </span>
+                  <span className="meta-item">v{tpl.version || 1}</span>
+                </div>
+
+                <div className="template-actions-row">
+                  <button
+                    onClick={() => handleOpenEdit(tpl)}
+                    className="btn-action-edit"
+                  >
+                    ✏️ Edit Report Tab
+                  </button>
+                  <button
+                    onClick={() => handleDelete(tpl.id, tpl.title)}
+                    className="btn-action-delete"
+                  >
+                    🗑️ Delete
+                  </button>
                 </div>
               </div>
-
-              <h3 className="template-title">{tpl.title}</h3>
-              <p className="template-desc">{tpl.description || "No description provided."}</p>
-
-              <div className="template-meta-row">
-                <span className="meta-item">
-                  🏢 {assignedCount} {assignedCount === 1 ? "Outlet" : "Outlets"}
-                </span>
-                <span className="meta-item">
-                  📋 {totalItems} {totalItems === 1 ? "Item" : "Items"}
-                </span>
-                <span className="meta-item">
-                  📝 {tpl._count?.submissions || 0} Records
-                </span>
-                <span className="meta-item">v{tpl.version || 1}</span>
-              </div>
-
-              <div className="template-actions-row">
-                <button
-                  onClick={() => handleOpenEdit(tpl)}
-                  className="btn-action-edit"
-                >
-                  ✏️ Edit Template
-                </button>
-                <button
-                  onClick={() => handleDelete(tpl.id, tpl.title)}
-                  className="btn-action-delete"
-                >
-                  🗑️ Archive
-                </button>
-              </div>
-            </div>
-          );
-        })}
+            );
+          })
+        )}
       </div>
+
 
       {/* Create / Edit Modal */}
       {isModalOpen && (
@@ -550,8 +571,8 @@ export default function TemplateManagerClient({
               <div className="modal-title-wrap">
                 <span className="modal-icon">{icon}</span>
                 <div>
-                  <h2>{editingTemplate ? `Edit: ${editingTemplate.title}` : "Create New Dynamic Template"}</h2>
-                  <p className="modal-subtitle">Configure schema, checkpoints, shifts & outlet distribution</p>
+                  <h2>{editingTemplate ? `Edit: ${editingTemplate.title}` : "Create New Report Tab"}</h2>
+                  <p className="modal-subtitle">Configure sections, checkpoints, equipment items, shifts & outlet distribution</p>
                 </div>
               </div>
               <button
@@ -568,7 +589,7 @@ export default function TemplateManagerClient({
               {/* Quick Presets (For New Templates) */}
               {!editingTemplate && (
                 <div className="preset-selector-row">
-                  <span className="preset-label">⚡ Starter Presets:</span>
+                  <span className="preset-label">⚡ Quick Presets:</span>
                   {Object.keys(PRESETS).map((key) => (
                     <button
                       key={key}
@@ -584,11 +605,11 @@ export default function TemplateManagerClient({
 
               {/* Form Metadata */}
               <div className="form-section-card">
-                <h3 className="section-subtitle">1. General Information & Settings</h3>
+                <h3 className="section-subtitle">1. Report Tab Information & Settings</h3>
                 
                 <div className="form-row-2">
                   <div className="form-group">
-                    <label>Template Title *</label>
+                    <label>Report Tab Title *</label>
                     <input
                       type="text"
                       required
@@ -603,6 +624,7 @@ export default function TemplateManagerClient({
                       className="form-input"
                     />
                   </div>
+
 
                   <div className="form-group">
                     <label>URL Slug *</label>
@@ -967,7 +989,7 @@ export default function TemplateManagerClient({
               {/* Outlet Distribution */}
               <div className="form-section-card">
                 <div className="outlet-assign-header">
-                  <h3 className="section-subtitle">3. Assign to Facilities & Outlets</h3>
+                  <h3 className="section-subtitle">3. Assign Report Tab to Facilities & Outlets</h3>
                   <div className="outlet-quick-buttons">
                     <button
                       type="button"
@@ -1023,9 +1045,10 @@ export default function TemplateManagerClient({
                   disabled={saving}
                   className="btn-primary-save"
                 >
-                  {saving ? "Saving Template..." : editingTemplate ? "Update Template" : "Create Template"}
+                  {saving ? "Saving Report Tab..." : editingTemplate ? "Update Report Tab" : "Create Report Tab"}
                 </button>
               </div>
+
             </form>
           </div>
         </div>
