@@ -18,7 +18,12 @@ export default auth((req) => {
 
   // Admin-only routes
   const isAdminRoute = nextUrl.pathname.startsWith("/admin");
-  if (isAdminRoute && session?.user?.role !== "ADMIN") {
+  const isAdmin =
+    session?.user?.role === "ORG_ADMIN" ||
+    session?.user?.role === "SUPER_ADMIN" ||
+    session?.user?.role === "ADMIN";
+
+  if (isAdminRoute && !isAdmin) {
     return NextResponse.redirect(new URL("/dashboard", nextUrl));
   }
 
