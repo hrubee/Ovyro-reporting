@@ -973,7 +973,17 @@ export default function TemplateManagerClient({
                                       className="mock-input"
                                     />
                                   ) : (
-                                    <span className="mock-checkbox">☑ Pass / Clean</span>
+                                    <div className="touch-btn-toggle" style={{ opacity: 0.9 }}>
+                                      <button type="button" className="touch-btn-option active-yes" style={{ padding: "0.2rem 0.45rem", fontSize: "0.7rem" }}>
+                                        ✓ YES
+                                      </button>
+                                      <button type="button" className="touch-btn-option" style={{ padding: "0.2rem 0.45rem", fontSize: "0.7rem" }}>
+                                        ✕ NO
+                                      </button>
+                                      <button type="button" className="touch-btn-option" style={{ padding: "0.2rem 0.45rem", fontSize: "0.7rem" }}>
+                                        — N/A
+                                      </button>
+                                    </div>
                                   )}
                                 </td>
                               </tr>

@@ -2038,6 +2038,56 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   background: #f1f5f9;
 }
 
+.quick-btn-action {
+  padding: 0.32rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: white;
+  cursor: pointer;
+  transition: all var(--transition);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.quick-btn-action.yes {
+  color: #15803d;
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+.quick-btn-action.yes:hover {
+  background: #dcfce7;
+}
+
+.quick-btn-action.na {
+  color: #475569;
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+.quick-btn-action.na:hover {
+  background: #f1f5f9;
+}
+
+.quick-btn-action.no {
+  color: #b91c1c;
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+.quick-btn-action.no:hover {
+  background: #fee2e2;
+}
+
+.quick-action-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-right: 0.25rem;
+}
+
 .audit-table {
   width: 100%;
   border-collapse: collapse;

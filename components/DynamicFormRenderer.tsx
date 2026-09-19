@@ -112,7 +112,7 @@ export default function DynamicFormRenderer({
             setSupervisorSigned(!!matching.supervisorSigned);
           } else {
             setExistingSubmissionId(null);
-            setFormData(getInitialDataForSchema(parsedSchema, template.category));
+            setFormData(getInitialDataForSchema(parsedSchema, template.category, availableStaff, currentUser?.name));
             setComments("");
             setCorrectiveAction("");
             setSupervisorSigned(false);
@@ -129,104 +129,215 @@ export default function DynamicFormRenderer({
     return () => {
       isCancelled = true;
     };
-  }, [outlet.id, template.id, template.category, template.frequency, parsedSchema, selectedDate, selectedShift]);
+  }, [outlet.id, template.id, template.category, template.frequency, parsedSchema, selectedDate, selectedShift, availableStaff, currentUser?.name]);
 
-  function getInitialDataForSchema(schema: any, category: string) {
-    const sections = schema?.sections || [];
-    if (category === "HOUSEKEEPING") {
-      return {
-        items: sections.flatMap((s: any) =>
-          (s.items || []).map((item: any) => ({
-            id: item.id,
-            name: item.name,
-            checked: false,
-            cleanedBy: item.defaultAssignee || availableStaff[0] || "",
-            time: new Date().toTimeString().slice(0, 5),
-          }))
-        ),
-      };
-    } else if (category === "EQUIPMENT") {
-      return {
-        completedItems: sections.flatMap((s: any) =>
-          (s.items || []).map((item: any) => ({
-            id: item.id,
-            name: item.name,
-            category: item.category || s.title,
-            cleanedBy: item.defaultAssignee || availableStaff[0] || "",
-            checkedBy: currentUser.name || "Supervisor",
-            status: "DONE",
-            time: new Date().toTimeString().slice(0, 5),
-          }))
-        ),
-      };
-    } else if (category === "TEMPERATURE") {
-      return {
-        readings: sections.flatMap((s: any) =>
-          (s.items || []).map((item: any) => ({
-            id: item.id,
-            name: item.name,
-            machineNumber: item.machineNumber || "",
-            referenceTemp: item.referenceTemp || "",
-            morningTemp: "",
-            eveningTemp: "",
-            status: "NORMAL",
-          }))
-        ),
-      };
-    } else if (category === "SAFETY_GLASS") {
-      return {
-        locations: sections.flatMap((s: any) =>
-          (s.items || []).map((item: any) => ({
-            id: item.id,
-            location: item.name,
-            status: "INTACT",
-            cleanedBy: item.defaultAssignee || availableStaff[0] || "",
-          }))
-        ),
-      };
-    } else if (category === "MAINTENANCE") {
-      return {
-        tasks: sections.flatMap((s: any) =>
-          (s.items || []).map((item: any) => ({
-            id: item.id,
-            task: item.name,
-            category: item.category || s.title,
-            completedBy: item.defaultAssignee || "Technician",
-            status: "DONE",
-            notes: "",
-          }))
-        ),
-      };
+function YesNoNaToggle({
+  value,
+  onChange,
+}: {
+  value?: "YES" | "NO" | "NA" | string | boolean;
+  onChange: (val: "YES" | "NO" | "NA") => void;
+}) {
+  const current =
+    value === true || value === "YES" || value === "DONE" || value === "INTACT"
+      ? "YES"
+      : value === false || value === "NO" || value === "PENDING" || value === "DAMAGED"
+      ? "NO"
+      : value === "NA" || value === "N/A"
+      ? "NA"
+      : "YES";
+
+  return (
+    <div className="touch-btn-toggle">
+      <button
+        type="button"
+        onClick={() => onChange("YES")}
+        className={`touch-btn-option ${current === "YES" ? "active-yes" : ""}`}
+        title="Yes / Clean / Pass"
+      >
+        ✓ YES
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange("NO")}
+        className={`touch-btn-option ${current === "NO" ? "active-no" : ""}`}
+        title="No / Not Done / Flagged"
+      >
+        ✕ NO
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange("NA")}
+        className={`touch-btn-option ${current === "NA" ? "active-na" : ""}`}
+        title="Not Applicable"
+      >
+        — N/A
+      </button>
+    </div>
+  );
+}
+
+function getInitialDataForSchema(
+  schema: any,
+  category: string,
+  availableStaff: string[] = ["Staff Member"],
+  currentUserName?: string
+) {
+  const sections = schema?.sections || [];
+  const defaultStaff = (availableStaff && availableStaff[0]) || "Staff Member";
+
+  if (category === "HOUSEKEEPING") {
+    let items = sections.flatMap((s: any) =>
+      (s.items || []).map((item: any) => ({
+        id: item.id || `hk-${Math.random()}`,
+        name: item.name || item.task || "Housekeeping Zone",
+        status: "YES",
+        cleanedBy: item.defaultAssignee || defaultStaff,
+        time: new Date().toTimeString().slice(0, 5),
+      }))
+    );
+    if (!items.length) {
+      items = [
+        { id: "hk-1", name: "Main Kitchen & Prep Counter", status: "YES", cleanedBy: defaultStaff, time: "09:00" },
+        { id: "hk-2", name: "Dishwashing & Sanitation Station", status: "YES", cleanedBy: defaultStaff, time: "09:30" },
+        { id: "hk-3", name: "Storage & Walk-in Cooler Floors", status: "YES", cleanedBy: defaultStaff, time: "10:00" },
+      ];
     }
-    return {};
+    return { items };
+  } else if (category === "EQUIPMENT") {
+    let completedItems = sections.flatMap((s: any) =>
+      (s.items || []).map((item: any) => ({
+        id: item.id || `eq-${Math.random()}`,
+        name: item.name || "Equipment Unit",
+        category: item.category || s.title || "Kitchen Equipment",
+        cleanedBy: item.defaultAssignee || defaultStaff,
+        checkedBy: currentUserName || "Supervisor",
+        status: "YES",
+        time: new Date().toTimeString().slice(0, 5),
+      }))
+    );
+    if (!completedItems.length) {
+      completedItems = [
+        { id: "eq-1", name: "Deep Fryer Unit 1", category: "Hot Line", cleanedBy: defaultStaff, checkedBy: currentUserName || "Supervisor", status: "YES", time: "09:00" },
+        { id: "eq-2", name: "Main Combi Oven", category: "Hot Line", cleanedBy: defaultStaff, checkedBy: currentUserName || "Supervisor", status: "YES", time: "09:15" },
+      ];
+    }
+    return { completedItems };
+  } else if (category === "TEMPERATURE") {
+    let readings = sections.flatMap((s: any) =>
+      (s.items || []).map((item: any) => ({
+        id: item.id || `temp-${Math.random()}`,
+        name: item.name || "Refrigeration Unit",
+        machineNumber: item.machineNumber || "",
+        referenceTemp: item.referenceTemp || "+2°C to +8°C",
+        morningTemp: "",
+        eveningTemp: "",
+        status: "NORMAL",
+      }))
+    );
+    if (!readings.length) {
+      readings = [
+        { id: "temp-1", name: "Walk-in Meat Chiller", machineNumber: "1", referenceTemp: "+2°C to +4°C", morningTemp: "3.2", eveningTemp: "3.5", status: "NORMAL" },
+        { id: "temp-2", name: "Dairy & Produce Cooler", machineNumber: "2", referenceTemp: "+2°C to +6°C", morningTemp: "4.1", eveningTemp: "4.3", status: "NORMAL" },
+      ];
+    }
+    return { readings };
+  } else if (category === "SAFETY_GLASS") {
+    let locations = sections.flatMap((s: any) =>
+      (s.items || []).map((item: any) => ({
+        id: item.id || `sg-${Math.random()}`,
+        location: item.name || item.location || "Glass Panel",
+        status: "YES",
+        cleanedBy: item.defaultAssignee || defaultStaff,
+      }))
+    );
+    if (!locations.length) {
+      locations = [
+        { id: "sg-1", location: "Front Display Case Glass", status: "YES", cleanedBy: defaultStaff },
+        { id: "sg-2", location: "Service Counter Sneeze Guard", status: "YES", cleanedBy: defaultStaff },
+      ];
+    }
+    return { locations };
+  } else if (category === "MAINTENANCE" || category === "CUSTOM") {
+    let tasks = sections.flatMap((s: any) =>
+      (s.items || []).map((item: any) => ({
+        id: item.id || `maint-${Math.random()}`,
+        task: item.name || item.task || "Maintenance Task",
+        category: item.category || s.title || "Facility",
+        completedBy: item.defaultAssignee || "Technician",
+        status: "YES",
+        notes: "",
+      }))
+    );
+    if (!tasks.length) {
+      tasks = [
+        { id: "maint-1", task: "AC Filter Cleaning & Air Flow Check", category: "HVAC", completedBy: "Technician", status: "YES", notes: "" },
+        { id: "maint-2", task: "Exhaust Hood Grease Filter Inspection", category: "Ventilation", completedBy: "Technician", status: "YES", notes: "" },
+      ];
+    }
+    return { tasks };
   }
+  return {};
+}
+
 
   // Calculate Compliance Score
   const complianceScore = useMemo(() => {
-    if (template.category === "HOUSEKEEPING") {
-      const items = formData.items || [];
-      if (!items.length) return 100;
-      const checked = items.filter((i: any) => i.checked).length;
-      return Math.round((checked / items.length) * 100);
-    }
     if (template.category === "TEMPERATURE") {
       const readings = formData.readings || [];
       if (!readings.length) return 100;
       let total = 0;
       let valid = 0;
       readings.forEach((r: any) => {
-        if (r.morningTemp !== "" && r.morningTemp !== "N/A") {
+        if (r.morningTemp !== "" && r.morningTemp !== "N/A" && r.morningTemp !== "NA") {
           total++;
           if (r.status !== "BREACH") valid++;
         }
-        if (r.eveningTemp !== "" && r.eveningTemp !== "N/A") {
+        if (r.eveningTemp !== "" && r.eveningTemp !== "N/A" && r.eveningTemp !== "NA") {
           total++;
           if (r.status !== "BREACH") valid++;
         }
       });
       return total === 0 ? 100 : Math.round((valid / total) * 100);
     }
-    return 100;
+
+    // Dynamic checklist items
+    let allItems: any[] = [];
+    if (template.category === "HOUSEKEEPING") {
+      allItems = formData.items || [];
+    } else if (template.category === "EQUIPMENT") {
+      allItems = formData.completedItems || [];
+    } else if (template.category === "SAFETY_GLASS") {
+      allItems = formData.locations || [];
+    } else if (template.category === "MAINTENANCE" || template.category === "CUSTOM") {
+      allItems = formData.tasks || [];
+    }
+
+    if (!allItems.length) return 100;
+
+    let yesCount = 0;
+    let noCount = 0;
+    allItems.forEach((it: any) => {
+      const val =
+        it.status !== undefined
+          ? it.status
+          : it.checked === true
+          ? "YES"
+          : it.checked === false
+          ? "NO"
+          : "YES";
+
+      if (val === "YES" || val === "DONE" || val === "INTACT" || val === true) {
+        yesCount++;
+      } else if (val === "NO" || val === "PENDING" || val === "DAMAGED" || val === false) {
+        noCount++;
+      }
+      // "NA" / "N/A" is excluded from the denominator so it does not penalize compliance
+    });
+
+    const scoredTotal = yesCount + noCount;
+    if (scoredTotal === 0) return 100;
+    return Math.round((yesCount / scoredTotal) * 100);
   }, [formData, template.category]);
 
   const handleSave = async () => {
@@ -355,48 +466,64 @@ export default function DynamicFormRenderer({
           {template.category === "HOUSEKEEPING" && (
             <div className="table-card">
               <div className="table-header-bar">
-                <h3>{sections[0]?.title || "Housekeeping & Sanitization Zones"}</h3>
-                <button
-                  type="button"
-                  className="quick-action-btn"
-                  onClick={() => {
-                    const currentItems = formData.items || [];
-                    const allChecked = currentItems.every((i: any) => i.checked);
-                    setFormData({
-                      ...formData,
-                      items: currentItems.map((i: any) => ({ ...i, checked: !allChecked })),
-                    });
-                  }}
-                >
-                  Toggle All Completed
-                </button>
+                <div>
+                  <h3>{sections[0]?.title || "Housekeeping & Sanitization Zones"}</h3>
+                  <span className="item-count-badge">{(formData.items || []).length} checkpoints</span>
+                </div>
+                <div className="quick-action-bar">
+                  <span className="quick-action-label">Batch Actions:</span>
+                  <button
+                    type="button"
+                    className="quick-btn-action yes"
+                    onClick={() => {
+                      setFormData({
+                        ...formData,
+                        items: (formData.items || []).map((i: any) => ({ ...i, status: "YES" })),
+                      });
+                    }}
+                  >
+                    ✓ All YES
+                  </button>
+                  <button
+                    type="button"
+                    className="quick-btn-action na"
+                    onClick={() => {
+                      setFormData({
+                        ...formData,
+                        items: (formData.items || []).map((i: any) => ({ ...i, status: "NA" })),
+                      });
+                    }}
+                  >
+                    — All N/A
+                  </button>
+                  <button
+                    type="button"
+                    className="quick-btn-action no"
+                    onClick={() => {
+                      setFormData({
+                        ...formData,
+                        items: (formData.items || []).map((i: any) => ({ ...i, status: "NO" })),
+                      });
+                    }}
+                  >
+                    ✕ All NO
+                  </button>
+                </div>
               </div>
 
               <div className="table-responsive">
                 <table className="audit-table">
                   <thead>
                     <tr>
-                      <th style={{ width: "50px" }}>Status</th>
                       <th>Zone / Area</th>
                       <th>Assigned Cleaner</th>
                       <th>Clean Time</th>
+                      <th style={{ width: "220px", textAlign: "center" }}>Status</th>
                     </tr>
                   </thead>
                   <tbody>
                     {(formData.items || []).map((item: any, idx: number) => (
-                      <tr key={item.id || idx} className={item.checked ? "row-checked" : ""}>
-                        <td style={{ textAlign: "center" }}>
-                          <input
-                            type="checkbox"
-                            checked={!!item.checked}
-                            onChange={(e) => {
-                              const newItems = [...(formData.items || [])];
-                              newItems[idx] = { ...item, checked: e.target.checked };
-                              setFormData({ ...formData, items: newItems });
-                            }}
-                            className="custom-checkbox"
-                          />
-                        </td>
+                      <tr key={item.id || idx}>
                         <td>
                           <span className="font-semibold">{item.name}</span>
                         </td>
@@ -429,6 +556,16 @@ export default function DynamicFormRenderer({
                             className="table-time-input"
                           />
                         </td>
+                        <td style={{ textAlign: "center" }}>
+                          <YesNoNaToggle
+                            value={item.status}
+                            onChange={(val) => {
+                              const newItems = [...(formData.items || [])];
+                              newItems[idx] = { ...item, status: val };
+                              setFormData({ ...formData, items: newItems });
+                            }}
+                          />
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -440,26 +577,79 @@ export default function DynamicFormRenderer({
           {/* 2. EQUIPMENT SANITIZATION */}
           {template.category === "EQUIPMENT" && (
             <div className="sections-grid">
-              {sections.map((sec: any) => (
-                <div key={sec.id} className="table-card">
-                  <div className="table-header-bar">
-                    <h3>{sec.title}</h3>
-                    <span className="item-count-badge">{(sec.items || []).length} units</span>
-                  </div>
-                  <div className="table-responsive">
-                    <table className="audit-table">
-                      <thead>
-                        <tr>
-                          <th>Equipment</th>
-                          <th>Cleaned By</th>
-                          <th>Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(formData.completedItems || [])
-                          .filter((ci: any) => (sec.items || []).some((i: any) => i.id === ci.id || i.name === ci.name))
-                          .map((ci: any, idx: number) => {
-                            const globalIdx = (formData.completedItems || []).findIndex((x: any) => x.id === ci.id);
+              {sections.map((sec: any) => {
+                const secItems = (formData.completedItems || []).filter((ci: any) =>
+                  (sec.items || []).some((i: any) => i.id === ci.id || i.name === ci.name)
+                );
+                return (
+                  <div key={sec.id} className="table-card">
+                    <div className="table-header-bar">
+                      <div>
+                        <h3>{sec.title}</h3>
+                        <span className="item-count-badge">{secItems.length} units</span>
+                      </div>
+                      <div className="quick-action-bar">
+                        <button
+                          type="button"
+                          className="quick-btn-action yes"
+                          onClick={() => {
+                            const updated = (formData.completedItems || []).map((ci: any) => {
+                              if ((sec.items || []).some((i: any) => i.id === ci.id || i.name === ci.name)) {
+                                return { ...ci, status: "YES" };
+                              }
+                              return ci;
+                            });
+                            setFormData({ ...formData, completedItems: updated });
+                          }}
+                        >
+                          ✓ All YES
+                        </button>
+                        <button
+                          type="button"
+                          className="quick-btn-action na"
+                          onClick={() => {
+                            const updated = (formData.completedItems || []).map((ci: any) => {
+                              if ((sec.items || []).some((i: any) => i.id === ci.id || i.name === ci.name)) {
+                                return { ...ci, status: "NA" };
+                              }
+                              return ci;
+                            });
+                            setFormData({ ...formData, completedItems: updated });
+                          }}
+                        >
+                          — All N/A
+                        </button>
+                        <button
+                          type="button"
+                          className="quick-btn-action no"
+                          onClick={() => {
+                            const updated = (formData.completedItems || []).map((ci: any) => {
+                              if ((sec.items || []).some((i: any) => i.id === ci.id || i.name === ci.name)) {
+                                return { ...ci, status: "NO" };
+                              }
+                              return ci;
+                            });
+                            setFormData({ ...formData, completedItems: updated });
+                          }}
+                        >
+                          ✕ All NO
+                        </button>
+                      </div>
+                    </div>
+                    <div className="table-responsive">
+                      <table className="audit-table">
+                        <thead>
+                          <tr>
+                            <th>Equipment</th>
+                            <th>Cleaned By</th>
+                            <th style={{ width: "220px", textAlign: "center" }}>Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {secItems.map((ci: any, idx: number) => {
+                            const globalIdx = (formData.completedItems || []).findIndex(
+                              (x: any) => x.id === ci.id
+                            );
                             return (
                               <tr key={ci.id || idx}>
                                 <td>
@@ -482,30 +672,25 @@ export default function DynamicFormRenderer({
                                     ))}
                                   </select>
                                 </td>
-                                <td>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
+                                <td style={{ textAlign: "center" }}>
+                                  <YesNoNaToggle
+                                    value={ci.status}
+                                    onChange={(val) => {
                                       const newItems = [...formData.completedItems];
-                                      newItems[globalIdx] = {
-                                        ...ci,
-                                        status: ci.status === "DONE" ? "PENDING" : "DONE",
-                                      };
+                                      newItems[globalIdx] = { ...ci, status: val };
                                       setFormData({ ...formData, completedItems: newItems });
                                     }}
-                                    className={`status-toggle-btn ${ci.status === "DONE" ? "done" : "pending"}`}
-                                  >
-                                    {ci.status === "DONE" ? "✓ Cleaned" : "⏳ Pending"}
-                                  </button>
+                                  />
                                 </td>
                               </tr>
                             );
                           })}
-                      </tbody>
-                    </table>
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
@@ -513,8 +698,10 @@ export default function DynamicFormRenderer({
           {template.category === "TEMPERATURE" && (
             <div className="table-card">
               <div className="table-header-bar">
-                <h3>Cold Storage & Display Temperature Monitoring</h3>
-                <span className="temp-spec-hint">Units: °C (Auto-validates against safe food tolerances)</span>
+                <div>
+                  <h3>Cold Storage & Display Temperature Monitoring</h3>
+                  <span className="temp-spec-hint">Units: °C (Auto-validates against safe food tolerances)</span>
+                </div>
               </div>
               <div className="table-responsive">
                 <table className="audit-table">
@@ -529,7 +716,9 @@ export default function DynamicFormRenderer({
                   </thead>
                   <tbody>
                     {(formData.readings || []).map((reading: any, idx: number) => {
-                      const schemaItem = sections.flatMap((s: any) => s.items || []).find((i: any) => i.id === reading.id || i.name === reading.name);
+                      const schemaItem = sections
+                        .flatMap((s: any) => s.items || [])
+                        .find((i: any) => i.id === reading.id || i.name === reading.name);
                       const min = schemaItem?.targetMinTemp ?? -20;
                       const max = schemaItem?.targetMaxTemp ?? 10;
                       const mNum = parseFloat(reading.morningTemp);
@@ -561,7 +750,9 @@ export default function DynamicFormRenderer({
                                 newReadings[idx] = { ...reading, morningTemp: e.target.value };
                                 setFormData({ ...formData, readings: newReadings });
                               }}
-                              className={`table-temp-input ${!isNaN(mNum) && (mNum < min || mNum > max) ? "temp-out-of-bounds" : ""}`}
+                              className={`table-temp-input ${
+                                !isNaN(mNum) && (mNum < min || mNum > max) ? "temp-out-of-bounds" : ""
+                              }`}
                             />
                           </td>
                           <td>
@@ -574,7 +765,9 @@ export default function DynamicFormRenderer({
                                 newReadings[idx] = { ...reading, eveningTemp: e.target.value };
                                 setFormData({ ...formData, readings: newReadings });
                               }}
-                              className={`table-temp-input ${!isNaN(eNum) && (eNum < min || eNum > max) ? "temp-out-of-bounds" : ""}`}
+                              className={`table-temp-input ${
+                                !isNaN(eNum) && (eNum < min || eNum > max) ? "temp-out-of-bounds" : ""
+                              }`}
                             />
                           </td>
                           <td>
@@ -599,7 +792,49 @@ export default function DynamicFormRenderer({
           {template.category === "SAFETY_GLASS" && (
             <div className="table-card">
               <div className="table-header-bar">
-                <h3>Glass & Structural Safety Inspection</h3>
+                <div>
+                  <h3>Glass & Structural Safety Inspection</h3>
+                  <span className="item-count-badge">{(formData.locations || []).length} checkpoints</span>
+                </div>
+                <div className="quick-action-bar">
+                  <span className="quick-action-label">Batch Actions:</span>
+                  <button
+                    type="button"
+                    className="quick-btn-action yes"
+                    onClick={() => {
+                      setFormData({
+                        ...formData,
+                        locations: (formData.locations || []).map((l: any) => ({ ...l, status: "YES" })),
+                      });
+                    }}
+                  >
+                    ✓ All YES
+                  </button>
+                  <button
+                    type="button"
+                    className="quick-btn-action na"
+                    onClick={() => {
+                      setFormData({
+                        ...formData,
+                        locations: (formData.locations || []).map((l: any) => ({ ...l, status: "NA" })),
+                      });
+                    }}
+                  >
+                    — All N/A
+                  </button>
+                  <button
+                    type="button"
+                    className="quick-btn-action no"
+                    onClick={() => {
+                      setFormData({
+                        ...formData,
+                        locations: (formData.locations || []).map((l: any) => ({ ...l, status: "NO" })),
+                      });
+                    }}
+                  >
+                    ✕ All NO
+                  </button>
+                </div>
               </div>
               <div className="table-responsive">
                 <table className="audit-table">
@@ -607,7 +842,7 @@ export default function DynamicFormRenderer({
                     <tr>
                       <th>Location / Panel</th>
                       <th>Inspector</th>
-                      <th>Condition</th>
+                      <th style={{ width: "220px", textAlign: "center" }}>Condition</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -633,21 +868,15 @@ export default function DynamicFormRenderer({
                             ))}
                           </select>
                         </td>
-                        <td>
-                          <button
-                            type="button"
-                            onClick={() => {
+                        <td style={{ textAlign: "center" }}>
+                          <YesNoNaToggle
+                            value={loc.status}
+                            onChange={(val) => {
                               const newLocs = [...(formData.locations || [])];
-                              newLocs[idx] = {
-                                ...loc,
-                                status: loc.status === "INTACT" ? "DAMAGED" : "INTACT",
-                              };
+                              newLocs[idx] = { ...loc, status: val };
                               setFormData({ ...formData, locations: newLocs });
                             }}
-                            className={`status-toggle-btn ${loc.status === "INTACT" ? "done" : "breach"}`}
-                          >
-                            {loc.status === "INTACT" ? "✓ Intact & Clean" : "⚠️ Damaged / Flagged"}
-                          </button>
+                          />
                         </td>
                       </tr>
                     ))}
@@ -657,11 +886,53 @@ export default function DynamicFormRenderer({
             </div>
           )}
 
-          {/* 5. MONTHLY MAINTENANCE */}
-          {template.category === "MAINTENANCE" && (
+          {/* 5. MONTHLY MAINTENANCE & CUSTOM */}
+          {(template.category === "MAINTENANCE" || template.category === "CUSTOM") && (
             <div className="table-card">
               <div className="table-header-bar">
-                <h3>Periodic / Monthly Deep Maintenance Tasks</h3>
+                <div>
+                  <h3>Periodic / Maintenance & Custom Tasks</h3>
+                  <span className="item-count-badge">{(formData.tasks || []).length} tasks</span>
+                </div>
+                <div className="quick-action-bar">
+                  <span className="quick-action-label">Batch Actions:</span>
+                  <button
+                    type="button"
+                    className="quick-btn-action yes"
+                    onClick={() => {
+                      setFormData({
+                        ...formData,
+                        tasks: (formData.tasks || []).map((t: any) => ({ ...t, status: "YES" })),
+                      });
+                    }}
+                  >
+                    ✓ All YES
+                  </button>
+                  <button
+                    type="button"
+                    className="quick-btn-action na"
+                    onClick={() => {
+                      setFormData({
+                        ...formData,
+                        tasks: (formData.tasks || []).map((t: any) => ({ ...t, status: "NA" })),
+                      });
+                    }}
+                  >
+                    — All N/A
+                  </button>
+                  <button
+                    type="button"
+                    className="quick-btn-action no"
+                    onClick={() => {
+                      setFormData({
+                        ...formData,
+                        tasks: (formData.tasks || []).map((t: any) => ({ ...t, status: "NO" })),
+                      });
+                    }}
+                  >
+                    ✕ All NO
+                  </button>
+                </div>
               </div>
               <div className="table-responsive">
                 <table className="audit-table">
@@ -670,7 +941,7 @@ export default function DynamicFormRenderer({
                       <th>Maintenance Task</th>
                       <th>Category</th>
                       <th>Assigned Specialist / Tech</th>
-                      <th>Status</th>
+                      <th style={{ width: "220px", textAlign: "center" }}>Status</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -695,21 +966,15 @@ export default function DynamicFormRenderer({
                             placeholder="Technician / Staff name"
                           />
                         </td>
-                        <td>
-                          <button
-                            type="button"
-                            onClick={() => {
+                        <td style={{ textAlign: "center" }}>
+                          <YesNoNaToggle
+                            value={task.status}
+                            onChange={(val) => {
                               const newTasks = [...(formData.tasks || [])];
-                              newTasks[idx] = {
-                                ...task,
-                                status: task.status === "DONE" ? "PENDING" : "DONE",
-                              };
+                              newTasks[idx] = { ...task, status: val };
                               setFormData({ ...formData, tasks: newTasks });
                             }}
-                            className={`status-toggle-btn ${task.status === "DONE" ? "done" : "pending"}`}
-                          >
-                            {task.status === "DONE" ? "✓ Serviced" : "⏳ Pending"}
-                          </button>
+                          />
                         </td>
                       </tr>
                     ))}

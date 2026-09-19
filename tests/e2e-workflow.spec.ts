@@ -86,6 +86,23 @@ test.describe('Reporting SaaS End-to-End Workflow', () => {
       // Ensure form rendered and no 404 error
       await expect(page.locator('.dynamic-sheet-page')).toBeVisible();
       await expect(page.locator('button.btn-primary-save')).toBeVisible();
+
+      // Test YES / NO / NA 3-way toggle and Quick Action batch buttons
+      const allYesBtn = page.locator('button.quick-btn-action.yes').first();
+      if (await allYesBtn.isVisible()) {
+        await allYesBtn.click();
+        await expect(page.locator('.touch-btn-option.active-yes').first()).toBeVisible();
+
+        // Click All NA
+        const allNaBtn = page.locator('button.quick-btn-action.na').first();
+        await allNaBtn.click();
+        await expect(page.locator('.touch-btn-option.active-na').first()).toBeVisible();
+
+        // Click single YES
+        const singleYesBtn = page.locator('.touch-btn-option:has-text("YES")').first();
+        await singleYesBtn.click();
+        await expect(singleYesBtn).toHaveClass(/active-yes/);
+      }
     }
 
     // 7. Test Reports Hub (/admin/reports)
