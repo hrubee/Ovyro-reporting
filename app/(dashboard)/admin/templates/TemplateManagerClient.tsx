@@ -35,15 +35,11 @@ function safeJson(val: any, fallback: any = {}) {
 }
 
 const DEFAULT_STAFF = [
-  "Rameshwar",
-  "Bharti",
-  "Mangla",
-  "Arzaaan",
-  "Shridhar Jadhav",
-  "Pravin Jadhav",
-  "Meraj Khan",
-  "Technician",
   "Staff Member",
+  "Shift Supervisor",
+  "Kitchen Lead",
+  "Operator / Cleaner",
+  "Technician",
 ];
 
 const PRESETS: Record<string, { title: string; category: string; icon: string; frequency: string; description: string; sections: Section[] }> = {
@@ -58,19 +54,19 @@ const PRESETS: Record<string, { title: string; category: string; icon: string; f
         id: "sec-1",
         title: "Main Kitchen & Prep Area",
         items: [
-          { id: "item-1", name: "Floor & Drain Washing", defaultAssignee: "Bharti" },
-          { id: "item-2", name: "Preparation Tables Sanitization", defaultAssignee: "Rameshwar" },
-          { id: "item-3", name: "Wash Sinks & Grease Trap", defaultAssignee: "Mangla" },
-          { id: "item-4", name: "Trash Bins Emptied & Lined", defaultAssignee: "Mangla" },
+          { id: "item-1", name: "Floor & Drain Washing", defaultAssignee: "Staff Member" },
+          { id: "item-2", name: "Preparation Tables Sanitization", defaultAssignee: "Staff Member" },
+          { id: "item-3", name: "Wash Sinks & Grease Trap", defaultAssignee: "Staff Member" },
+          { id: "item-4", name: "Trash Bins Emptied & Lined", defaultAssignee: "Staff Member" },
         ],
       },
       {
         id: "sec-2",
         title: "Customer & Service Area",
         items: [
-          { id: "item-5", name: "Dining Tables & Chairs", defaultAssignee: "Arzaaan" },
-          { id: "item-6", name: "Cash Counter & POS Screen", defaultAssignee: "Arzaaan" },
-          { id: "item-7", name: "Restrooms & Handwash Station", defaultAssignee: "Bharti" },
+          { id: "item-5", name: "Dining Tables & Chairs", defaultAssignee: "Staff Member" },
+          { id: "item-6", name: "Cash Counter & POS Screen", defaultAssignee: "Staff Member" },
+          { id: "item-7", name: "Restrooms & Handwash Station", defaultAssignee: "Staff Member" },
         ],
       },
     ],
@@ -112,17 +108,17 @@ const PRESETS: Record<string, { title: string; category: string; icon: string; f
         id: "sec-1",
         title: "Cooking Equipment",
         items: [
-          { id: "eq-1", name: "Convection Oven", category: "Cooking", defaultAssignee: "Rameshwar" },
-          { id: "eq-2", name: "Commercial Fryer", category: "Cooking", defaultAssignee: "Rameshwar" },
-          { id: "eq-3", name: "Dough Mixer & Hook", category: "Baking", defaultAssignee: "Pravin Jadhav" },
+          { id: "eq-1", name: "Convection Oven", category: "Cooking", defaultAssignee: "Staff Member" },
+          { id: "eq-2", name: "Commercial Fryer", category: "Cooking", defaultAssignee: "Staff Member" },
+          { id: "eq-3", name: "Dough Mixer & Hook", category: "Baking", defaultAssignee: "Staff Member" },
         ],
       },
       {
         id: "sec-2",
         title: "Beverage Machinery",
         items: [
-          { id: "eq-4", name: "Espresso Machine Group Heads", category: "Beverage", defaultAssignee: "Arzaaan" },
-          { id: "eq-5", name: "Ice Dispenser Machine", category: "Beverage", defaultAssignee: "Arzaaan" },
+          { id: "eq-4", name: "Espresso Machine Group Heads", category: "Beverage", defaultAssignee: "Staff Member" },
+          { id: "eq-5", name: "Ice Dispenser Machine", category: "Beverage", defaultAssignee: "Staff Member" },
         ],
       },
     ],
@@ -138,9 +134,9 @@ const PRESETS: Record<string, { title: string; category: string; icon: string; f
         id: "sec-1",
         title: "Glass & Structure",
         items: [
-          { id: "gl-1", name: "Front Entrance Glass Door", defaultAssignee: "Mangla" },
-          { id: "gl-2", name: "Display Glass Enclosure", defaultAssignee: "Mangla" },
-          { id: "gl-3", name: "Kitchen Partition Glass", defaultAssignee: "Bharti" },
+          { id: "sf-1", name: "Front Entrance Glass Door", defaultAssignee: "Staff Member" },
+          { id: "sf-2", name: "Display Glass Enclosure", defaultAssignee: "Staff Member" },
+          { id: "sf-3", name: "Kitchen Partition Glass", defaultAssignee: "Staff Member" },
         ],
       },
     ],
@@ -158,7 +154,7 @@ const PRESETS: Record<string, { title: string; category: string; icon: string; f
         items: [
           { id: "mm-1", name: "Air Conditioning Condenser Clean", category: "HVAC", defaultAssignee: "Technician" },
           { id: "mm-2", name: "Diesel Generator Battery & Fuel Check", category: "Electrical", defaultAssignee: "Technician" },
-          { id: "mm-3", name: "Fire Extinguisher Pressure Gauge", category: "Safety", defaultAssignee: "Supervisor" },
+          { id: "mm-3", name: "Fire Extinguisher Pressure Gauge", category: "Safety", defaultAssignee: "Shift Supervisor" },
         ],
       },
     ],

@@ -35,19 +35,11 @@ export default function DynamicFormRenderer({
   template,
   currentUser,
   availableStaff = [
-    "Rameshwar",
-    "Bharti",
-    "Mangla",
-    "Arzaaan",
-    "Shridhar Jadhav",
-    "Pravin Jadhav",
-    "Mavshi",
-    "Sanjay Jadhav",
-    "Suresh",
-    "Sagar Yadav",
-    "Dilip",
-    "Meraj Khan",
     "Staff Member",
+    "Shift Supervisor",
+    "Kitchen Lead",
+    "Operator",
+    "Technician",
   ],
 }: DynamicFormRendererProps) {
   const router = useRouter();
