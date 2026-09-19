@@ -2,8 +2,8 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "PNR Hygiene Reports",
-  description: "Digital Hygiene Report Management System",
+  title: "Reporting SaaS | Audit & Compliance Management",
+  description: "Universal Digital Hygiene, Safety & Compliance Reporting System",
 };
 
 export const viewport: Viewport = {
@@ -15,8 +15,9 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" data-scroll-behavior="smooth">
-      <body>{children}</body>
+    <html lang="en" data-scroll-behavior="smooth" suppressHydrationWarning>
+      <body suppressHydrationWarning>{children}</body>
     </html>
   );
 }
+
