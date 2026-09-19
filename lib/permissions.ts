@@ -196,3 +196,71 @@ export function getDayName(dateStr: string): string {
   const d = new Date(dateStr + "T00:00:00");
   return d.toLocaleDateString("en-IN", { weekday: "long" });
 }
+
+export async function resolveOrganizationId(sessionUser: {
+  organizationId?: string;
+  email?: string;
+}): Promise<string> {
+  // 1. Try provided organizationId
+  if (sessionUser?.organizationId) {
+    const org = await prisma.organization.findUnique({
+      where: { id: sessionUser.organizationId },
+      select: { id: true },
+    });
+    if (org) return org.id;
+  }
+
+  // 2. Try looking up user by email in database
+  if (sessionUser?.email) {
+    const dbUser = await prisma.user.findUnique({
+      where: { email: sessionUser.email },
+      select: { organizationId: true },
+    });
+    if (dbUser?.organizationId) {
+      const org = await prisma.organization.findUnique({
+        where: { id: dbUser.organizationId },
+        select: { id: true },
+      });
+      if (org) return org.id;
+    }
+  }
+
+  // 3. Fallback to first active organization in DB
+  const firstOrg = await prisma.organization.findFirst({ select: { id: true } });
+  if (firstOrg) return firstOrg.id;
+
+  // 4. Create a default organization if table is completely empty
+  const fallbackOrg = await prisma.organization.create({
+    data: {
+      name: "My Enterprise Kitchen",
+      slug: `org-${Date.now().toString().slice(-6)}`,
+    },
+    select: { id: true },
+  });
+  return fallbackOrg.id;
+}
+
+export async function resolveUserId(sessionUser: {
+  id?: string;
+  email?: string;
+}): Promise<string | null> {
+  if (sessionUser?.id) {
+    const u = await prisma.user.findUnique({
+      where: { id: sessionUser.id },
+      select: { id: true },
+    });
+    if (u) return u.id;
+  }
+
+  if (sessionUser?.email) {
+    const u = await prisma.user.findUnique({
+      where: { email: sessionUser.email },
+      select: { id: true },
+    });
+    if (u) return u.id;
+  }
+
+  return null;
+}
+
+

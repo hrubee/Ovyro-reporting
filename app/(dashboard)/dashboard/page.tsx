@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import Link from "next/link";
-import { getTodayString, formatDate } from "@/lib/permissions";
+import { getTodayString, formatDate, resolveOrganizationId } from "@/lib/permissions";
 
 interface PageProps {
   searchParams: Promise<{ outlet?: string }>;
@@ -19,16 +19,20 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     role: string;
     organizationId: string;
     organizationName?: string;
+    email?: string;
   };
+
+  const organizationId = await resolveOrganizationId(user);
 
   const resolvedParams = (await searchParams) || {};
   const cookieStore = await cookies();
 
   // Load all tenant outlets
   const outlets = await prisma.outlet.findMany({
-    where: { organizationId: user.organizationId, isActive: true },
+    where: { organizationId, isActive: true },
     orderBy: { createdAt: "asc" },
   });
+
 
   if (outlets.length === 0) {
     return (
@@ -87,7 +91,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
 
   // Recent 10 submissions across all outlets for this tenant
   const recentFeed = await prisma.formSubmission.findMany({
-    where: { organizationId: user.organizationId },
+    where: { organizationId },
     take: 8,
     orderBy: { createdAt: "desc" },
     include: {
@@ -96,6 +100,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       outlet: { select: { name: true, icon: true } },
     },
   });
+
 
   return (
     <div className="dashboard-container">

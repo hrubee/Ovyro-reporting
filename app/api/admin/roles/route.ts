@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
+import { resolveOrganizationId } from "@/lib/permissions";
 
 function safeJson(val: any, fallback: any = []) {
   if (typeof val !== "string") return val ?? fallback;
@@ -15,11 +16,12 @@ export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const user = session.user as { organizationId: string; role: string };
+  const user = session.user as { organizationId: string; role: string; email?: string };
+  const organizationId = await resolveOrganizationId(user);
 
   try {
     const roles = await prisma.customRole.findMany({
-      where: { organizationId: user.organizationId },
+      where: { organizationId },
       orderBy: { createdAt: "asc" },
       include: {
         _count: { select: { users: true } },
@@ -41,10 +43,12 @@ export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const user = session.user as { organizationId: string; role: string };
+  const user = session.user as { organizationId: string; role: string; email?: string };
   if (user.role !== "ORG_ADMIN" && user.role !== "SUPER_ADMIN" && user.role !== "ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+
+  const organizationId = await resolveOrganizationId(user);
 
   try {
     const body = await req.json();
@@ -61,12 +65,13 @@ export async function POST(req: NextRequest) {
 
     const role = await prisma.customRole.create({
       data: {
-        organizationId: user.organizationId,
+        organizationId,
         name,
         description: description || "",
         permissions: permsString,
       },
     });
+
 
     return NextResponse.json({
       success: true,

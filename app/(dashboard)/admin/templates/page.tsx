@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { redirect } from "next/navigation";
+import { resolveOrganizationId } from "@/lib/permissions";
 import TemplateManagerClient from "./TemplateManagerClient";
 
 function safeJson(val: any, fallback: any = {}) {
@@ -16,14 +17,16 @@ export default async function AdminTemplatesPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
-  const user = session.user as { organizationId: string; role: string };
+  const user = session.user as { organizationId: string; role: string; email?: string };
   if (user.role !== "ORG_ADMIN" && user.role !== "SUPER_ADMIN" && user.role !== "ADMIN") {
     redirect("/dashboard");
   }
 
+  const organizationId = await resolveOrganizationId(user);
+
   const [rawTemplates, rawOutlets] = await Promise.all([
     prisma.formTemplate.findMany({
-      where: { organizationId: user.organizationId, isArchived: false },
+      where: { organizationId, isArchived: false },
       orderBy: { createdAt: "desc" },
       include: {
         outletTemplates: {
@@ -35,11 +38,12 @@ export default async function AdminTemplatesPage() {
       },
     }),
     prisma.outlet.findMany({
-      where: { organizationId: user.organizationId, isActive: true },
+      where: { organizationId, isActive: true },
       select: { id: true, name: true, icon: true, shifts: true },
       orderBy: { createdAt: "asc" },
     }),
   ]);
+
 
   const templates = rawTemplates.map((t) => ({
     ...t,

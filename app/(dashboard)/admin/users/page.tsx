@@ -1,20 +1,23 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { redirect } from "next/navigation";
+import { resolveOrganizationId } from "@/lib/permissions";
 import UsersClient from "./UsersClient";
 
 export default async function UsersPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
-  const user = session.user as { organizationId: string; role: string };
+  const user = session.user as { organizationId: string; role: string; email?: string };
   if (user.role !== "ORG_ADMIN" && user.role !== "SUPER_ADMIN" && user.role !== "ADMIN") {
     redirect("/dashboard");
   }
 
+  const organizationId = await resolveOrganizationId(user);
+
   const [users, outlets, templates, roles] = await Promise.all([
     prisma.user.findMany({
-      where: { organizationId: user.organizationId },
+      where: { organizationId },
       orderBy: { createdAt: "asc" },
       select: {
         id: true,
@@ -46,19 +49,20 @@ export default async function UsersPage() {
       },
     }),
     prisma.outlet.findMany({
-      where: { organizationId: user.organizationId, isActive: true },
+      where: { organizationId, isActive: true },
       select: { id: true, name: true, icon: true },
     }),
     prisma.formTemplate.findMany({
-      where: { organizationId: user.organizationId, isArchived: false },
+      where: { organizationId, isArchived: false },
       select: { id: true, title: true, icon: true, category: true, slug: true },
     }),
     prisma.customRole.findMany({
-      where: { organizationId: user.organizationId },
+      where: { organizationId },
       orderBy: { createdAt: "asc" },
       select: { id: true, name: true, description: true, permissions: true },
     }),
   ]);
+
 
   const parsedUsers = users.map((u) => {
     let perms: string[] = [];

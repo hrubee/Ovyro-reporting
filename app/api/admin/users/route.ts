@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
+import { resolveOrganizationId } from "@/lib/permissions";
 import bcrypt from "bcryptjs";
 
 function safeJson(val: any, fallback: any = []) {
@@ -16,13 +17,15 @@ export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const user = session.user as { organizationId: string; role: string };
+  const user = session.user as { organizationId: string; role: string; email?: string };
   if (user.role !== "ORG_ADMIN" && user.role !== "SUPER_ADMIN" && user.role !== "ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  const organizationId = await resolveOrganizationId(user);
+
   const users = await prisma.user.findMany({
-    where: { organizationId: user.organizationId },
+    where: { organizationId },
     orderBy: { createdAt: "asc" },
     select: {
       id: true,
@@ -59,17 +62,19 @@ export async function GET(req: NextRequest) {
     permissions: safeJson(u.permissions, []),
   }));
 
-  return NextResponse.json(parsed);
+  return NextResponse.json({ users: parsed });
 }
 
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const user = session.user as { organizationId: string; role: string };
+  const user = session.user as { organizationId: string; role: string; email?: string };
   if (user.role !== "ORG_ADMIN" && user.role !== "SUPER_ADMIN" && user.role !== "ADMIN") {
     return NextResponse.json({ error: "Forbidden: Admin access required" }, { status: 403 });
   }
+
+  const organizationId = await resolveOrganizationId(user);
 
   const { name, email, password, role, customRoleId, permissions, outletIds, templateAccess } = await req.json();
 
@@ -89,42 +94,69 @@ export async function POST(req: NextRequest) {
       ? permissions
       : JSON.stringify(Array.isArray(permissions) ? permissions : ["submit_checklists"]);
 
+  let validCustomRoleId = customRoleId || null;
+  if (validCustomRoleId) {
+    const roleExists = await prisma.customRole.findUnique({
+      where: { id: validCustomRoleId },
+      select: { id: true },
+    });
+    if (!roleExists) validCustomRoleId = null;
+  }
+
   const createdUser = await prisma.user.create({
     data: {
-      organizationId: user.organizationId,
+      organizationId,
       name,
       email: cleanEmail,
       passwordHash,
       role: role || "OPERATOR",
-      customRoleId: customRoleId || null,
+      customRoleId: validCustomRoleId,
       permissions: permsString,
     },
   });
 
   // Assign user to outlets
   if (Array.isArray(outletIds) && outletIds.length > 0) {
+    const validOutlets = await prisma.outlet.findMany({
+      where: { id: { in: outletIds }, organizationId },
+      select: { id: true },
+    });
+    const validOutletIds = new Set(validOutlets.map((o) => o.id));
+
     for (const outletId of outletIds) {
-      await prisma.userOutlet.create({
-        data: {
-          userId: createdUser.id,
-          outletId,
-          role: role || "OPERATOR",
-        },
-      });
+      if (validOutletIds.has(outletId)) {
+        await prisma.userOutlet.create({
+          data: {
+            userId: createdUser.id,
+            outletId,
+            role: role || "OPERATOR",
+          },
+        });
+      }
     }
   }
 
   // Assign specific template access if provided
   if (Array.isArray(templateAccess) && templateAccess.length > 0) {
+    const requestedTplIds = templateAccess.map((t: any) => (typeof t === "string" ? t : t.templateId));
+    const validTemplates = await prisma.formTemplate.findMany({
+      where: { id: { in: requestedTplIds }, organizationId },
+      select: { id: true },
+    });
+    const validTplIds = new Set(validTemplates.map((t) => t.id));
+
     for (const item of templateAccess) {
-      await prisma.userTemplateAccess.create({
-        data: {
-          userId: createdUser.id,
-          templateId: item.templateId,
-          canSubmit: item.canSubmit !== false,
-          canVerify: !!item.canVerify,
-        },
-      });
+      const tId = typeof item === "string" ? item : item.templateId;
+      if (validTplIds.has(tId)) {
+        await prisma.userTemplateAccess.create({
+          data: {
+            userId: createdUser.id,
+            templateId: tId,
+            canSubmit: item.canSubmit !== false,
+            canVerify: !!item.canVerify,
+          },
+        });
+      }
     }
   }
 
@@ -135,18 +167,29 @@ export async function PATCH(req: NextRequest) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const user = session.user as { organizationId: string; role: string };
+  const user = session.user as { organizationId: string; role: string; email?: string };
   if (user.role !== "ORG_ADMIN" && user.role !== "SUPER_ADMIN" && user.role !== "ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  const organizationId = await resolveOrganizationId(user);
   const { id, name, role, customRoleId, permissions, isActive, password, outletIds, templateAccess } = await req.json();
   if (!id) return NextResponse.json({ error: "Missing user id" }, { status: 400 });
 
   const updateData: any = {};
   if (name !== undefined) updateData.name = name;
   if (role !== undefined) updateData.role = role;
-  if (customRoleId !== undefined) updateData.customRoleId = customRoleId || null;
+  if (customRoleId !== undefined) {
+    if (customRoleId) {
+      const roleExists = await prisma.customRole.findUnique({
+        where: { id: customRoleId },
+        select: { id: true },
+      });
+      updateData.customRoleId = roleExists ? customRoleId : null;
+    } else {
+      updateData.customRoleId = null;
+    }
+  }
   if (isActive !== undefined) updateData.isActive = isActive;
   if (password) updateData.passwordHash = await bcrypt.hash(password, 12);
   if (permissions !== undefined) {
@@ -161,31 +204,50 @@ export async function PATCH(req: NextRequest) {
   // Update outlet links if provided
   if (Array.isArray(outletIds)) {
     await prisma.userOutlet.deleteMany({ where: { userId: id } });
+    const validOutlets = await prisma.outlet.findMany({
+      where: { id: { in: outletIds }, organizationId },
+      select: { id: true },
+    });
+    const validOutletIds = new Set(validOutlets.map((o) => o.id));
+
     for (const outletId of outletIds) {
-      await prisma.userOutlet.create({
-        data: {
-          userId: id,
-          outletId,
-          role: role || updatedUser.role,
-        },
-      });
+      if (validOutletIds.has(outletId)) {
+        await prisma.userOutlet.create({
+          data: {
+            userId: id,
+            outletId,
+            role: role || updatedUser.role,
+          },
+        });
+      }
     }
   }
 
   // Update template access links if provided
   if (Array.isArray(templateAccess)) {
     await prisma.userTemplateAccess.deleteMany({ where: { userId: id } });
+    const requestedTplIds = templateAccess.map((t: any) => (typeof t === "string" ? t : t.templateId));
+    const validTemplates = await prisma.formTemplate.findMany({
+      where: { id: { in: requestedTplIds }, organizationId },
+      select: { id: true },
+    });
+    const validTplIds = new Set(validTemplates.map((t) => t.id));
+
     for (const item of templateAccess) {
-      await prisma.userTemplateAccess.create({
-        data: {
-          userId: id,
-          templateId: typeof item === "string" ? item : item.templateId,
-          canSubmit: item.canSubmit !== false,
-          canVerify: !!item.canVerify,
-        },
-      });
+      const tId = typeof item === "string" ? item : item.templateId;
+      if (validTplIds.has(tId)) {
+        await prisma.userTemplateAccess.create({
+          data: {
+            userId: id,
+            templateId: tId,
+            canSubmit: item.canSubmit !== false,
+            canVerify: !!item.canVerify,
+          },
+        });
+      }
     }
   }
 
   return NextResponse.json({ success: true, user: updatedUser });
 }
+

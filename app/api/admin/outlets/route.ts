@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
+import { resolveOrganizationId, resolveUserId } from "@/lib/permissions";
 
 function safeJson(val: any, fallback: any = []) {
   if (typeof val !== "string") return val ?? fallback;
@@ -17,11 +18,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const user = session.user as { organizationId: string };
+  const user = session.user as { organizationId: string; email?: string };
+  const organizationId = await resolveOrganizationId(user);
 
   try {
     const outlets = await prisma.outlet.findMany({
-      where: { organizationId: user.organizationId },
+      where: { organizationId },
       orderBy: { createdAt: "asc" },
       include: {
         outletTemplates: {
@@ -54,10 +56,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const user = session.user as { organizationId: string; role: string };
+  const user = session.user as { organizationId: string; role: string; email?: string; id?: string };
   if (user.role !== "ORG_ADMIN" && user.role !== "SUPER_ADMIN" && user.role !== "ADMIN") {
     return NextResponse.json({ error: "Forbidden: Admin access required" }, { status: 403 });
   }
+
+  const organizationId = await resolveOrganizationId(user);
+  const validUserId = await resolveUserId(user);
 
   try {
     const body = await req.json();
@@ -74,7 +79,7 @@ export async function POST(req: NextRequest) {
 
     const outlet = await prisma.outlet.create({
       data: {
-        organizationId: user.organizationId,
+        organizationId,
         name,
         code: code || null,
         type: type || "RESTAURANT",
@@ -84,28 +89,35 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Assign templates
+    // Assign templates - filter only valid templates belonging to this organization or existing in DB
     if (Array.isArray(templateIds) && templateIds.length > 0) {
+      const existingTemplates = await prisma.formTemplate.findMany({
+        where: { id: { in: templateIds }, organizationId },
+        select: { id: true },
+      });
+      const validTplIds = new Set(existingTemplates.map((t) => t.id));
+
       for (const [idx, templateId] of templateIds.entries()) {
-        await prisma.outletTemplate.create({
-          data: {
-            outletId: outlet.id,
-            templateId,
-            order: idx,
-            isEnabled: true,
-          },
-        });
+        if (validTplIds.has(templateId)) {
+          await prisma.outletTemplate.create({
+            data: {
+              outletId: outlet.id,
+              templateId,
+              order: idx,
+              isEnabled: true,
+            },
+          });
+        }
       }
     }
 
-    // Link creating user to the new outlet
-    const creatorId = (session.user as any).id;
-    if (creatorId) {
+    // Link creating user to the new outlet if user exists in DB
+    if (validUserId) {
       await prisma.userOutlet.upsert({
-        where: { userId_outletId: { userId: creatorId, outletId: outlet.id } },
+        where: { userId_outletId: { userId: validUserId, outletId: outlet.id } },
         update: {},
         create: {
-          userId: creatorId,
+          userId: validUserId,
           outletId: outlet.id,
           role: user.role,
         },
@@ -144,10 +156,12 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const user = session.user as { organizationId: string; role: string };
+  const user = session.user as { organizationId: string; role: string; email?: string };
   if (user.role !== "ORG_ADMIN" && user.role !== "SUPER_ADMIN" && user.role !== "ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+
+  const organizationId = await resolveOrganizationId(user);
 
   try {
     const body = await req.json();
@@ -175,15 +189,23 @@ export async function PUT(req: NextRequest) {
 
     if (Array.isArray(templateIds)) {
       await prisma.outletTemplate.deleteMany({ where: { outletId: id } });
+      const existingTemplates = await prisma.formTemplate.findMany({
+        where: { id: { in: templateIds }, organizationId },
+        select: { id: true },
+      });
+      const validTplIds = new Set(existingTemplates.map((t) => t.id));
+
       for (const [idx, tId] of templateIds.entries()) {
-        await prisma.outletTemplate.create({
-          data: {
-            outletId: id,
-            templateId: tId,
-            order: idx,
-            isEnabled: true,
-          },
-        });
+        if (validTplIds.has(tId)) {
+          await prisma.outletTemplate.create({
+            data: {
+              outletId: id,
+              templateId: tId,
+              order: idx,
+              isEnabled: true,
+            },
+          });
+        }
       }
     }
 
@@ -218,10 +240,12 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const user = session.user as { organizationId: string; role: string };
+  const user = session.user as { organizationId: string; role: string; email?: string };
   if (user.role !== "ORG_ADMIN" && user.role !== "SUPER_ADMIN" && user.role !== "ADMIN") {
     return NextResponse.json({ error: "Forbidden: Admin access required" }, { status: 403 });
   }
+
+  const organizationId = await resolveOrganizationId(user);
 
   try {
     const { searchParams } = new URL(req.url);
@@ -233,7 +257,7 @@ export async function DELETE(req: NextRequest) {
 
     // Check count of remaining active outlets
     const count = await prisma.outlet.count({
-      where: { organizationId: user.organizationId, isActive: true },
+      where: { organizationId, isActive: true },
     });
 
     if (count <= 1) {
@@ -254,4 +278,5 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: err.message || "Failed to delete facility" }, { status: 500 });
   }
 }
+
 

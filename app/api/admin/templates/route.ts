@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
-import { userHasPermission } from "@/lib/permissions";
+import { userHasPermission, resolveOrganizationId } from "@/lib/permissions";
 
 function safeJson(val: any, fallback: any = {}) {
   if (typeof val !== "string") return val ?? fallback;
@@ -18,11 +18,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const user = session.user as { organizationId: string; role: string };
+  const user = session.user as { organizationId: string; role: string; email?: string };
+  const organizationId = await resolveOrganizationId(user);
 
   try {
     const templates = await prisma.formTemplate.findMany({
-      where: { organizationId: user.organizationId, isArchived: false },
+      where: { organizationId, isArchived: false },
       orderBy: { createdAt: "desc" },
       include: {
         outletTemplates: {
@@ -55,7 +56,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const user = session.user as { organizationId: string; role: string; permissions?: string[] };
+  const user = session.user as { organizationId: string; role: string; permissions?: string[]; email?: string };
   const canManage =
     user.role === "ORG_ADMIN" ||
     user.role === "SUPER_ADMIN" ||
@@ -65,6 +66,8 @@ export async function POST(req: NextRequest) {
   if (!canManage) {
     return NextResponse.json({ error: "Forbidden: Manage templates permission required" }, { status: 403 });
   }
+
+  const organizationId = await resolveOrganizationId(user);
 
   try {
     const body = await req.json();
@@ -81,7 +84,7 @@ export async function POST(req: NextRequest) {
 
     // Check if slug already exists in this organization
     const existingSlug = await prisma.formTemplate.findFirst({
-      where: { organizationId: user.organizationId, slug: cleanSlug },
+      where: { organizationId, slug: cleanSlug },
     });
 
     if (existingSlug) {
@@ -90,7 +93,7 @@ export async function POST(req: NextRequest) {
 
     const template = await prisma.formTemplate.create({
       data: {
-        organizationId: user.organizationId,
+        organizationId,
         title,
         slug: cleanSlug,
         category: category || "CUSTOM",
@@ -101,19 +104,29 @@ export async function POST(req: NextRequest) {
       },
     });
 
+
     // Assign to outlets if provided
     if (Array.isArray(outletIds) && outletIds.length > 0) {
+      const validOutlets = await prisma.outlet.findMany({
+        where: { id: { in: outletIds }, organizationId },
+        select: { id: true },
+      });
+      const validOutletIds = new Set(validOutlets.map((o) => o.id));
+
       for (const [idx, outletId] of outletIds.entries()) {
-        await prisma.outletTemplate.create({
-          data: {
-            outletId,
-            templateId: template.id,
-            order: idx,
-            isEnabled: true,
-          },
-        });
+        if (validOutletIds.has(outletId)) {
+          await prisma.outletTemplate.create({
+            data: {
+              outletId,
+              templateId: template.id,
+              order: idx,
+              isEnabled: true,
+            },
+          });
+        }
       }
     }
+
 
     return NextResponse.json({
       success: true,

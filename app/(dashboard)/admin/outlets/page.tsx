@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { redirect } from "next/navigation";
+import { resolveOrganizationId } from "@/lib/permissions";
 import OutletManagerClient from "./OutletManagerClient";
 
 function safeJson(val: any, fallback: any = []) {
@@ -16,15 +17,18 @@ export default async function AdminOutletsPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
-  const user = session.user as { organizationId: string; role: string };
+  const user = session.user as { organizationId: string; role: string; email?: string };
   if (user.role !== "ORG_ADMIN" && user.role !== "SUPER_ADMIN" && user.role !== "ADMIN") {
     redirect("/dashboard");
   }
 
+  const organizationId = await resolveOrganizationId(user);
+
   const [rawOutlets, templates] = await Promise.all([
     prisma.outlet.findMany({
-      where: { organizationId: user.organizationId },
+      where: { organizationId },
       orderBy: { createdAt: "asc" },
+
       include: {
         outletTemplates: {
           include: {
