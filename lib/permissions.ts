@@ -1,120 +1,179 @@
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { OUTLETS, getOutletById } from "@/lib/outlets";
 
-export type SheetId =
-  | "HYGIENE_REPORT"
-  | "GLASS_REPORT"
-  | "FRIDGE_REPORT"
-  | "KITCHEN"
-  | "PRODUCTION"
-  | "PUFF_ROOM"
-  | "CAKE_ROOM"
-  | "ORETA_SHOP_CLEANING"
-  | "ORETA_EQUIPMENT"
-  | "ORETA_FRIDGE"
-  | "ORETA_GLASS"
-  | "ORETA_MONTHLY"
-  | "ORETA_HYGIENE";
-
-export const SHEET_LABELS: Record<SheetId, string> = {
-  HYGIENE_REPORT: "Hygiene Report",
-  GLASS_REPORT: "Glass Report",
-  FRIDGE_REPORT: "Fridge Report",
-  KITCHEN: "Kitchen",
-  PRODUCTION: "Production",
-  PUFF_ROOM: "Puff Room",
-  CAKE_ROOM: "Cake Room",
-  ORETA_SHOP_CLEANING: "House Keeping",
-  ORETA_EQUIPMENT: "Equipment Cleaning",
-  ORETA_FRIDGE: "Fridge & Display Temp",
-  ORETA_GLASS: "Glass Report",
-  ORETA_MONTHLY: "Monthly Maintenance",
-  ORETA_HYGIENE: "House Keeping",
-};
-
-export const SHEET_ROUTES: Record<SheetId, string> = {
-  HYGIENE_REPORT: "/hygiene",
-  GLASS_REPORT: "/glass",
-  FRIDGE_REPORT: "/fridge",
-  KITCHEN: "/kitchen",
-  PRODUCTION: "/production",
-  PUFF_ROOM: "/puff-room",
-  CAKE_ROOM: "/cake-room",
-  ORETA_SHOP_CLEANING: "/oreta/shop-cleaning",
-  ORETA_EQUIPMENT: "/oreta/equipment",
-  ORETA_FRIDGE: "/oreta/fridge",
-  ORETA_GLASS: "/oreta/glass",
-  ORETA_MONTHLY: "/oreta/monthly",
-  ORETA_HYGIENE: "/oreta/shop-cleaning",
-};
-
-export const SUPERVISORS = [
-  "Aboli Wagh",
-  "Sandeep Gargate",
-  "Admin",
-  "Oreta Supervisor",
-];
-
-export const SHEET_STAFF: Record<SheetId, string[]> = {
-  HYGIENE_REPORT: ["Shridhar Jadhav", "Pravin Jadhav", "Mavshi"],
-  GLASS_REPORT: ["Sanjay Jadhav", "Suresh"],
-  FRIDGE_REPORT: ["Aboli Wagh", "Sandeep Gargate"],
-  KITCHEN: ["Sagar Yadav", "Pravin Jadhav", "Mavshi", "Suresh"],
-  PRODUCTION: ["Sagar Yadav", "Pravin Jadhav", "Mavshi"],
-  PUFF_ROOM: ["Dilip", "Sandeep Gargate"],
-  CAKE_ROOM: ["Meraj Khan", "Jaseen Siddique", "Nadeem Faruqi"],
-  ORETA_SHOP_CLEANING: ["Rameshwar", "Bharti", "Mangla", "Arzaaan", "New Staff", "Admin"],
-  ORETA_EQUIPMENT: ["Rameshwar", "Bharti", "Mangla", "Arzaaan", "New Staff", "Admin"],
-  ORETA_FRIDGE: ["Rameshwar", "Bharti", "Mangla", "Arzaaan", "Admin"],
-  ORETA_GLASS: ["Mangla", "Bharti", "Rameshwar", "Admin"],
-  ORETA_MONTHLY: ["Mangla", "Rameshwar", "Bharti", "Arzaaan", "Admin"],
-  ORETA_HYGIENE: ["Rameshwar", "Bharti", "Mangla", "Arzaaan", "New Staff", "Admin"],
-};
-
-export const ALL_STAFF = [
-  "Aboli Wagh",
-  "Sandeep Gargate",
-  "Shridhar Jadhav",
-  "Pravin Jadhav",
-  "Mavshi",
-  "Sanjay Jadhav",
-  "Suresh",
-  "Sagar Yadav",
-  "Dilip",
-  "Meraj Khan",
-  "Jaseen Siddique",
-  "Nadeem Faruqi",
-  "Rameshwar",
-  "Bharti",
-  "Mangla",
-  "Arzaaan",
-  "New Staff",
-];
-
-export async function getUserSheetAccess(userId: string): Promise<SheetId[]> {
-  const access = await prisma.sheetAccess.findMany({
-    where: { userId },
-    select: { sheet: true },
-  });
-  return access.map((a: { sheet: string }) => a.sheet as SheetId);
+export function safeJsonParse(val: any, fallback: any = {}) {
+  if (typeof val !== "string") return val ?? fallback;
+  try {
+    return JSON.parse(val);
+  } catch {
+    return fallback;
+  }
 }
 
-export async function hasSheetAccess(
-  userId: string,
-  sheet: SheetId,
-  role: string
-): Promise<boolean> {
-  if (role === "ADMIN") return true;
-  // Handle alias
-  const normalizedSheet = sheet === "ORETA_HYGIENE" ? "ORETA_SHOP_CLEANING" : sheet;
-  const access = await prisma.sheetAccess.findFirst({
-    where: {
-      userId,
-      sheet: { in: [sheet, normalizedSheet, "ORETA_HYGIENE", "ORETA_SHOP_CLEANING"] },
-    },
-  });
-  return !!access;
+export interface PermissionDefinition {
+  key: string;
+  label: string;
+  description: string;
+  category: "EXECUTION" | "AUDIT" | "MANAGEMENT";
+}
+
+export const SYSTEM_PERMISSIONS: PermissionDefinition[] = [
+  {
+    key: "submit_checklists",
+    label: "Submit Daily Checklists",
+    description: "Can record shift checklists, temperature readings, and equipment logs.",
+    category: "EXECUTION",
+  },
+  {
+    key: "supervisor_signoff",
+    label: "Supervisor Verification & Digital Sign-off",
+    description: "Can review completed logs, verify corrective actions, and apply digital sign-off.",
+    category: "AUDIT",
+  },
+  {
+    key: "view_reports",
+    label: "View Audit Reports & Analytics",
+    description: "Can view facility audit scorecards and submission history.",
+    category: "AUDIT",
+  },
+  {
+    key: "export_audit_pack",
+    label: "Export Compliance & FSSAI/HACCP Packs",
+    description: "Can export CSV, Excel, and print audit reports for regulatory inspectors.",
+    category: "AUDIT",
+  },
+  {
+    key: "manage_templates",
+    label: "Manage Dynamic Checklists & Templates",
+    description: "Can create, edit, and assign custom checklist templates in Template Builder.",
+    category: "MANAGEMENT",
+  },
+  {
+    key: "manage_outlets",
+    label: "Manage Facilities & Outlets",
+    description: "Can create, edit locations, and configure operational shifts.",
+    category: "MANAGEMENT",
+  },
+  {
+    key: "manage_team",
+    label: "Manage Team, Roles & Permissions",
+    description: "Can create team members, configure custom roles, and assign permissions.",
+    category: "MANAGEMENT",
+  },
+];
+
+export interface OutletSummary {
+  id: string;
+  name: string;
+  code: string | null;
+  type: string;
+  icon: string;
+  shifts: string[];
+}
+
+export interface TemplateSummary {
+  id: string;
+  slug: string;
+  title: string;
+  category: string;
+  icon: string;
+  description: string | null;
+  frequency: string;
+  schema: any;
+  canSubmit?: boolean;
+  canVerify?: boolean;
+}
+
+export async function getTenantOutlets(
+  organizationId: string,
+  userId?: string,
+  userRole?: string
+): Promise<OutletSummary[]> {
+  try {
+    let whereClause: any = { organizationId, isActive: true };
+
+    // If user is OPERATOR, only show outlets they have access to
+    if (userRole === "OPERATOR" && userId) {
+      whereClause.userOutlets = {
+        some: { userId },
+      };
+    }
+
+    const outlets = await prisma.outlet.findMany({
+      where: whereClause,
+      orderBy: { createdAt: "asc" },
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        type: true,
+        icon: true,
+        shifts: true,
+      },
+    });
+
+    return outlets.map((o) => ({
+      ...o,
+      shifts: safeJsonParse(o.shifts, ["Morning", "Evening"]),
+    }));
+  } catch (err) {
+    console.error("Error fetching tenant outlets:", err);
+    return [];
+  }
+}
+
+export async function getOutletTemplates(
+  outletId: string,
+  userId?: string,
+  userRole?: string
+): Promise<TemplateSummary[]> {
+  try {
+    const outletTemplates = await prisma.outletTemplate.findMany({
+      where: { outletId, isEnabled: true },
+      include: {
+        template: {
+          include: {
+            userAccess: userId ? { where: { userId } } : false,
+          },
+        },
+      },
+      orderBy: { order: "asc" },
+    });
+
+    return outletTemplates
+      .filter((ot) => {
+        // If user is ORG_ADMIN or SUPER_ADMIN or SUPERVISOR, all templates are visible
+        if (!userId || userRole === "ORG_ADMIN" || userRole === "SUPER_ADMIN" || userRole === "ADMIN" || userRole === "SUPERVISOR") {
+          return true;
+        }
+        // If user has specific template assignments, filter accordingly
+        const access = (ot.template as any).userAccess;
+        if (!access || access.length === 0) return true; // default accessible if no restrictions
+        return access.some((a: any) => a.canSubmit);
+      })
+      .map((ot) => ({
+        id: ot.template.id,
+        slug: ot.template.slug,
+        title: ot.template.title,
+        category: ot.template.category,
+        icon: ot.template.icon,
+        description: ot.template.description,
+        frequency: ot.template.frequency,
+        schema: safeJsonParse(ot.template.schema, {}),
+      }));
+  } catch (err) {
+    console.error("Error fetching outlet templates:", err);
+    return [];
+  }
+}
+
+export function userHasPermission(userPermissions: string[] | string | undefined, requiredKey: string, role?: string): boolean {
+  if (role === "ORG_ADMIN" || role === "SUPER_ADMIN" || role === "ADMIN") return true;
+  const list = Array.isArray(userPermissions)
+    ? userPermissions
+    : typeof userPermissions === "string"
+    ? safeJsonParse(userPermissions, [])
+    : [];
+  return list.includes(requiredKey);
 }
 
 export function getTodayString(): string {
@@ -122,16 +181,18 @@ export function getTodayString(): string {
 }
 
 export function formatDate(dateStr: string): string {
+  if (!dateStr) return "";
   const d = new Date(dateStr + "T00:00:00");
   return d.toLocaleDateString("en-IN", {
-    weekday: "long",
+    weekday: "short",
     day: "2-digit",
-    month: "long",
+    month: "short",
     year: "numeric",
   });
 }
 
 export function getDayName(dateStr: string): string {
+  if (!dateStr) return "";
   const d = new Date(dateStr + "T00:00:00");
   return d.toLocaleDateString("en-IN", { weekday: "long" });
 }

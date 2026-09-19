@@ -1,6 +1,6 @@
 {
-  "name": "hygiene-app",
-  "version": "0.1.0",
+  "name": "ovyro-reporting",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev",

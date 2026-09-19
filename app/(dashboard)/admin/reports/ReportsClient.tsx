@@ -1,398 +1,313 @@
 "use client";
-import { useState, useMemo } from "react";
-import { OUTLETS } from "@/lib/outlets";
 
-const SHEETS = [
-  { key: "hygiene", label: "Hygiene Report", icon: "🧹", route: "/hygiene", outlet: "bakery" },
-  { key: "glass", label: "Glass Report", icon: "🪟", route: "/glass", outlet: "bakery" },
-  { key: "fridge", label: "Fridge Report", icon: "🧊", route: "/fridge", outlet: "bakery" },
-  { key: "kitchen", label: "Kitchen", icon: "🍳", route: "/kitchen", outlet: "bakery" },
-  { key: "production", label: "Production", icon: "🏭", route: "/production", outlet: "bakery" },
-  { key: "puffRoom", label: "Puff Room", icon: "🥐", route: "/puff-room", outlet: "bakery" },
-  { key: "cakeRoom", label: "Cake Room", icon: "🎂", route: "/cake-room", outlet: "bakery" },
-  // Oreta World sheets
-  { key: "oretaHygiene", label: "House Keeping", icon: "🧹", route: "/oreta/shop-cleaning", outlet: "oreta-world" },
-  { key: "oretaEquipment", label: "Equipment Cleaning", icon: "⚙️", route: "/oreta/equipment", outlet: "oreta-world" },
-  { key: "oretaFridge", label: "Fridge & Display Temp", icon: "🧊", route: "/oreta/fridge", outlet: "oreta-world" },
-  { key: "oretaGlass", label: "Glass Report", icon: "🪟", route: "/oreta/glass", outlet: "oreta-world" },
-  { key: "oretaMonthly", label: "Monthly Maintenance", icon: "🗓️", route: "/oreta/monthly", outlet: "oreta-world" },
-];
+import React, { useState, useMemo } from "react";
+import { formatDate } from "@/lib/permissions";
 
-type SheetEntry = {
+interface SubmissionsRecord {
   id: string;
   date: string;
-  month?: string;
-  submittedBy: { name: string };
+  shift?: string | null;
+  complianceScore?: number | null;
   supervisorName?: string;
-  supervisedBy?: string;
-  workerName?: string;
-  createdAt: string;
+  supervisorSigned?: boolean;
   comments?: string;
-};
+  correctiveAction?: string;
+  status: string;
+  createdAt: string;
+  data: any;
+  submittedBy?: { name?: string; email?: string };
+  outlet?: { id: string; name: string; code?: string | null; icon: string };
+  template?: { id: string; slug: string; title: string; icon: string; category: string };
+}
 
-type DataMap = Record<string, SheetEntry[]>;
+interface ReportsClientProps {
+  submissions: SubmissionsRecord[];
+  outlets: Array<{ id: string; name: string; icon: string }>;
+  templates: Array<{ id: string; title: string; icon: string; category: string; slug: string }>;
+}
 
-interface Props { data: DataMap; }
-
-export default function ReportsClient({ data }: Props) {
+export default function ReportsClient({
+  submissions,
+  outlets,
+  templates,
+}: ReportsClientProps) {
   const [selectedOutlet, setSelectedOutlet] = useState("all");
-  const [selectedSheet, setSelectedSheet] = useState("all");
+  const [selectedTemplate, setSelectedTemplate] = useState("all");
+  const [selectedStatus, setSelectedStatus] = useState("all");
   const [dateFrom, setDateFrom] = useState(() => {
     const d = new Date();
-    d.setDate(d.getDate() - 7);
+    d.setDate(d.getDate() - 14);
     return d.toISOString().split("T")[0];
   });
   const [dateTo, setDateTo] = useState(() => new Date().toISOString().split("T")[0]);
-  const [sortDir, setSortDir] = useState<"desc" | "asc">("desc");
-  const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  // Filter available sheets based on selected outlet
-  const availableSheets = useMemo(() => {
-    if (selectedOutlet === "all") return SHEETS;
-    return SHEETS.filter((s) => s.outlet === selectedOutlet);
-  }, [selectedOutlet]);
-
-  // Build a flat list of all entries with their sheet and outlet metadata
-  const allRows = useMemo(() => {
-    const rows: Array<SheetEntry & { sheetKey: string; sheetLabel: string; sheetIcon: string; outlet: string }> = [];
-    for (const sh of SHEETS) {
-      const entries: SheetEntry[] = data[sh.key] || [];
-      for (const e of entries) {
-        const effectiveDate = e.date || e.month || "";
-        rows.push({
-          ...e,
-          date: effectiveDate,
-          sheetKey: sh.key,
-          sheetLabel: sh.label,
-          sheetIcon: sh.icon,
-          outlet: sh.outlet,
-        });
-      }
-    }
-    return rows;
-  }, [data]);
-
-  // Filter by outlet, sheet, and date range
   const filtered = useMemo(() => {
-    return allRows
-      .filter((r) => {
-        if (selectedOutlet !== "all" && r.outlet !== selectedOutlet) return false;
-        if (selectedSheet !== "all" && r.sheetKey !== selectedSheet) return false;
-        if (dateFrom && r.date < dateFrom) return false;
-        if (dateTo && r.date > dateTo) return false;
-        return true;
-      })
-      .sort((a, b) => {
-        const diff = a.date.localeCompare(b.date);
-        return sortDir === "desc" ? -diff : diff;
-      });
-  }, [allRows, selectedOutlet, selectedSheet, dateFrom, dateTo, sortDir]);
+    return submissions.filter((sub) => {
+      if (selectedOutlet !== "all" && sub.outlet?.id !== selectedOutlet) return false;
+      if (selectedTemplate !== "all" && sub.template?.id !== selectedTemplate) return false;
+      if (selectedStatus !== "all" && sub.status !== selectedStatus) return false;
+      if (dateFrom && sub.date < dateFrom) return false;
+      if (dateTo && sub.date > dateTo) return false;
+      return true;
+    });
+  }, [submissions, selectedOutlet, selectedTemplate, selectedStatus, dateFrom, dateTo]);
 
-  // Per-sheet counts for summary bar
-  const sheetCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const sh of SHEETS) counts[sh.key] = 0;
-    for (const r of filtered) counts[r.sheetKey] = (counts[r.sheetKey] || 0) + 1;
-    return counts;
+  const avgCompliance = useMemo(() => {
+    if (!filtered.length) return 100;
+    const total = filtered.reduce((acc, curr) => acc + (curr.complianceScore ?? 100), 0);
+    return Math.round(total / filtered.length);
   }, [filtered]);
 
-  const uniqueDates = useMemo(() => {
-    const dates = new Set(filtered.map((r) => r.date));
-    return dates.size;
-  }, [filtered]);
+  const exportCSV = () => {
+    const headers = [
+      "Date",
+      "Facility",
+      "Checklist / SOP",
+      "Category",
+      "Shift",
+      "Compliance Score",
+      "Submitted By",
+      "Supervisor",
+      "Signed",
+      "Status",
+      "Comments",
+      "Corrective Action",
+    ];
 
-  const expectedSheetsCount = availableSheets.length;
-  const totalPossible = useMemo(() => {
-    if (!dateFrom || !dateTo) return 0;
-    let count = 0;
-    const from = new Date(dateFrom);
-    const to = new Date(dateTo);
-    for (let d = new Date(from); d <= to; d.setDate(d.getDate() + 1)) count++;
-    return count * (selectedSheet === "all" ? expectedSheetsCount : 1);
-  }, [dateFrom, dateTo, selectedSheet, expectedSheetsCount]);
-
-  const compliance = totalPossible > 0 ? Math.round((filtered.length / totalPossible) * 100) : 0;
-
-  function quickRange(days: number) {
-    const to = new Date();
-    const from = new Date();
-    from.setDate(from.getDate() - days);
-    setDateFrom(from.toISOString().split("T")[0]);
-    setDateTo(to.toISOString().split("T")[0]);
-  }
-
-  function exportCSV() {
-    const headers = ["Outlet", "Date", "Time", "Sheet", "Submitted By", "Supervisor/Worker", "Comments"];
-    const rows = filtered.map((r) => [
-      r.outlet === "oreta-world" ? "Oreta World" : "Bakery",
-      r.date,
-      new Date(r.createdAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
-      r.sheetLabel,
-      r.submittedBy.name,
-      r.supervisorName || r.supervisedBy || r.workerName || "—",
-      (r.comments || "").replace(/,/g, ";"),
+    const rows = filtered.map((sub) => [
+      sub.date,
+      `"${sub.outlet?.name || ""}"`,
+      `"${sub.template?.title || ""}"`,
+      sub.template?.category || "",
+      sub.shift || "General",
+      `${sub.complianceScore ?? 100}%`,
+      `"${sub.submittedBy?.name || ""}"`,
+      `"${sub.supervisorName || ""}"`,
+      sub.supervisorSigned ? "Yes" : "No",
+      sub.status,
+      `"${(sub.comments || "").replace(/"/g, '""')}"`,
+      `"${(sub.correctiveAction || "").replace(/"/g, '""')}"`,
     ]);
-    const csv = [headers, ...rows].map((row) => row.join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `pnr_hygiene_report_${dateFrom}_to_${dateTo}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
+
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `Audit_Compliance_Report_${dateFrom}_to_${dateTo}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   return (
-    <div className="page-container fade-in">
+    <div className="admin-page-container">
       {/* Header */}
-      <div className="page-header">
-        <div className="page-header-text">
-          <h1>📊 Multi-Outlet Reports & Analytics</h1>
-          <p>Submission history across Bakery and Oreta World outlets</p>
+      <div className="admin-header-row">
+        <div>
+          <h1 className="admin-page-title">Audit Reports & Compliance Pack</h1>
+          <p className="admin-page-subtitle">
+            Centralized audit trail across all facilities, shifts, and equipment logs with FSSAI/HACCP export readiness.
+          </p>
         </div>
-        <button className="btn btn-secondary" onClick={exportCSV}>
-          ⬇️ Export CSV
-        </button>
-      </div>
-
-      {/* Filters */}
-      <div className="card" style={{ marginBottom: "1.5rem" }}>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "1.25rem", alignItems: "flex-end" }}>
-          {/* Outlet Filter */}
-          <div className="form-group" style={{ minWidth: 180 }}>
-            <label>Sub-Account / Outlet</label>
-            <select
-              value={selectedOutlet}
-              onChange={(e) => {
-                setSelectedOutlet(e.target.value);
-                setSelectedSheet("all");
-              }}
-            >
-              <option value="all">🏢 All Outlets</option>
-              {OUTLETS.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.icon} {o.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Date Range */}
-          <div className="form-group" style={{ minWidth: 140 }}>
-            <label>From Date</label>
-            <input type="date" value={dateFrom} max={dateTo} onChange={(e) => setDateFrom(e.target.value)} />
-          </div>
-          <div className="form-group" style={{ minWidth: 140 }}>
-            <label>To Date</label>
-            <input type="date" value={dateTo} min={dateFrom} onChange={(e) => setDateTo(e.target.value)} />
-          </div>
-
-          {/* Quick ranges */}
-          <div className="form-group">
-            <label>Quick Range</label>
-            <div style={{ display: "flex", gap: "0.5rem" }}>
-              {[
-                { label: "7D", days: 7 },
-                { label: "14D", days: 14 },
-                { label: "30D", days: 30 },
-                { label: "60D", days: 60 },
-              ].map(({ label, days }) => (
-                <button
-                  key={days}
-                  className="btn btn-sm btn-secondary"
-                  onClick={() => quickRange(days)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Sheet filter */}
-          <div className="form-group" style={{ minWidth: 180 }}>
-            <label>Sheet</label>
-            <select value={selectedSheet} onChange={(e) => setSelectedSheet(e.target.value)}>
-              <option value="all">All Available Sheets</option>
-              {availableSheets.map((sh) => (
-                <option key={sh.key} value={sh.key}>
-                  {sh.icon} {sh.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Sort */}
-          <div className="form-group">
-            <label>Sort</label>
-            <button
-              className="btn btn-sm btn-secondary"
-              onClick={() => setSortDir((d) => (d === "desc" ? "asc" : "desc"))}
-              style={{ minWidth: 110 }}
-            >
-              {sortDir === "desc" ? "⬇ Newest First" : "⬆ Oldest First"}
-            </button>
-          </div>
+        <div className="header-actions-group">
+          <button onClick={() => window.print()} className="btn-secondary-action">
+            🖨️ Print Audit Pack
+          </button>
+          <button onClick={exportCSV} className="btn-create-primary">
+            📥 Export to CSV / Excel
+          </button>
         </div>
       </div>
 
-      {/* Summary Stats */}
-      <div className="stats-grid" style={{ marginBottom: "1.5rem" }}>
-        <div className="stat-card">
-          <div className="stat-icon blue">📋</div>
-          <div>
-            <div className="stat-value">{filtered.length}</div>
-            <div className="stat-label">Entries Found</div>
-          </div>
+      {/* Summary KPI Cards */}
+      <div className="reports-kpi-grid">
+        <div className="kpi-card">
+          <span className="kpi-title">Total Submissions</span>
+          <span className="kpi-value">{filtered.length}</span>
+          <span className="kpi-hint">Records in filtered range</span>
         </div>
-        <div className="stat-card">
-          <div className="stat-icon green">📅</div>
-          <div>
-            <div className="stat-value">{uniqueDates}</div>
-            <div className="stat-label">Days with Data</div>
-          </div>
+        <div className="kpi-card">
+          <span className="kpi-title">Average Compliance</span>
+          <span className={`kpi-value ${avgCompliance < 85 ? "warning" : "good"}`}>
+            {avgCompliance}%
+          </span>
+          <span className="kpi-hint">SOP verification rate</span>
         </div>
-        <div className="stat-card">
-          <div className={`stat-icon ${compliance >= 80 ? "green" : compliance >= 50 ? "amber" : "red"}`}>
-            {compliance >= 80 ? "✅" : compliance >= 50 ? "⚠️" : "❌"}
-          </div>
-          <div>
-            <div className="stat-value">{compliance}%</div>
-            <div className="stat-label">Compliance Rate</div>
-          </div>
+        <div className="kpi-card">
+          <span className="kpi-title">Supervisor Verified</span>
+          <span className="kpi-value">
+            {filtered.filter((s) => s.supervisorSigned || s.status === "VERIFIED").length}
+          </span>
+          <span className="kpi-hint">With digital sign-off</span>
         </div>
-        <div className="stat-card">
-          <div className="stat-icon amber">📊</div>
-          <div>
-            <div className="stat-value">{Math.max(0, totalPossible - filtered.length)}</div>
-            <div className="stat-label">Missing Entries</div>
-          </div>
+        <div className="kpi-card">
+          <span className="kpi-title">Action / CAPA Logs</span>
+          <span className="kpi-value">{filtered.filter((s) => !!s.correctiveAction).length}</span>
+          <span className="kpi-hint">Recorded corrective actions</span>
         </div>
       </div>
 
-      {/* Per-Sheet Breakdown */}
-      {selectedSheet === "all" && (
-        <div className="card" style={{ marginBottom: "1.5rem" }}>
-          <div className="card-header">
-            <div className="card-title">📈 Submissions Per Sheet</div>
-            <div style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>
-              {dateFrom} → {dateTo}
-            </div>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "0.75rem" }}>
-            {availableSheets.map((sh) => {
-              const count = sheetCounts[sh.key] || 0;
-              const maxDays = expectedSheetsCount > 0 ? totalPossible / expectedSheetsCount : 1;
-              const pct = maxDays > 0 ? Math.round((count / maxDays) * 100) : 0;
-              return (
-                <div
-                  key={sh.key}
-                  className="sheet-stat-card"
-                  onClick={() => setSelectedSheet(sh.key)}
-                  style={{ cursor: "pointer" }}
-                >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
-                    <span style={{ fontSize: "0.85rem", fontWeight: 600 }}>{sh.icon} {sh.label}</span>
-                    <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{count} entries</span>
-                  </div>
-                  <div className="progress-bar-track">
-                    <div
-                      className="progress-bar-fill"
-                      style={{
-                        width: `${pct}%`,
-                        background: pct >= 80 ? "var(--success)" : pct >= 50 ? "var(--warning)" : "var(--danger)",
-                      }}
-                    />
-                  </div>
-                  <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", marginTop: "0.25rem" }}>{pct}% compliance</div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Data Table */}
-      <div className="card">
-        <div className="card-header">
-          <div className="card-title">
-            {selectedSheet === "all"
-              ? `Entries Log (${filtered.length})`
-              : `${SHEETS.find((s) => s.key === selectedSheet)?.icon} ${SHEETS.find((s) => s.key === selectedSheet)?.label} — ${filtered.length} entries`}
-          </div>
-          {selectedSheet !== "all" && (
-            <button className="btn btn-sm btn-secondary" onClick={() => setSelectedSheet("all")}>
-              ← All Sheets
-            </button>
-          )}
+      {/* Filters Bar */}
+      <div className="reports-filter-card">
+        <div className="filter-item">
+          <label>Facility / Outlet</label>
+          <select
+            value={selectedOutlet}
+            onChange={(e) => setSelectedOutlet(e.target.value)}
+            className="filter-select"
+          >
+            <option value="all">All Outlets</option>
+            {outlets.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.icon} {o.name}
+              </option>
+            ))}
+          </select>
         </div>
 
-        {filtered.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "3rem", color: "var(--text-muted)" }}>
-            <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>📭</div>
-            <div>No entries found for the selected filters.</div>
-          </div>
-        ) : (
-          <div style={{ overflowX: "auto" }}>
-            <table className="data-table">
-              <thead>
+        <div className="filter-item">
+          <label>Checklist Template</label>
+          <select
+            value={selectedTemplate}
+            onChange={(e) => setSelectedTemplate(e.target.value)}
+            className="filter-select"
+          >
+            <option value="all">All Checklists</option>
+            {templates.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.icon} {t.title}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="filter-item">
+          <label>From Date</label>
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+            className="filter-input"
+          />
+        </div>
+
+        <div className="filter-item">
+          <label>To Date</label>
+          <input
+            type="date"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+            className="filter-input"
+          />
+        </div>
+      </div>
+
+      {/* Submissions Table */}
+      <div className="table-card">
+        <div className="table-header-bar">
+          <h3>Submission Log ({filtered.length} entries)</h3>
+        </div>
+
+        <div className="table-responsive">
+          <table className="audit-table">
+            <thead>
+              <tr>
+                <th>Date & Shift</th>
+                <th>Facility</th>
+                <th>Checklist / Template</th>
+                <th>Score</th>
+                <th>Submitted By</th>
+                <th>Supervisor Sign-off</th>
+                <th>Status</th>
+                <th>Details</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
                 <tr>
-                  <th>Outlet</th>
-                  <th
-                    style={{ cursor: "pointer", userSelect: "none" }}
-                    onClick={() => setSortDir((d) => (d === "desc" ? "asc" : "desc"))}
-                  >
-                    Date {sortDir === "desc" ? "▼" : "▲"}
-                  </th>
-                  <th>Day</th>
-                  <th>Sheet</th>
-                  <th>Submitted By</th>
-                  <th>Supervisor / Worker</th>
-                  <th>Time</th>
-                  <th>Comments</th>
+                  <td colSpan={8} className="empty-table-cell">
+                    No submissions found matching your filters.
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {filtered.map((row) => {
-                  const rowId = `${row.sheetKey}-${row.id}`;
-                  const isExpanded = expandedRow === rowId;
-                  const dayLabel = new Date(row.date + "T00:00:00").toLocaleDateString("en-IN", { weekday: "short" });
-                  const timeLabel = new Date(row.createdAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
-                  const supervisor = row.supervisorName || row.supervisedBy || row.workerName || "—";
-                  const outletName = row.outlet === "oreta-world" ? "🌐 Oreta World" : "🥐 Bakery";
-
+              ) : (
+                filtered.map((sub) => {
+                  const isExpanded = expandedId === sub.id;
                   return (
-                    <tr
-                      key={rowId}
-                      style={{ cursor: "pointer" }}
-                      onClick={() => setExpandedRow(isExpanded ? null : rowId)}
-                    >
-                      <td>
-                        <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--accent)" }}>
-                          {outletName}
-                        </span>
-                      </td>
-                      <td>
-                        <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{row.date}</span>
-                      </td>
-                      <td style={{ color: "var(--text-muted)", fontSize: "0.8rem" }}>{dayLabel}</td>
-                      <td>
-                        <span className="sheet-tag">
-                          {row.sheetIcon} {row.sheetLabel}
-                        </span>
-                      </td>
-                      <td style={{ fontWeight: 500 }}>{row.submittedBy.name}</td>
-                      <td style={{ color: "var(--text-muted)" }}>{supervisor}</td>
-                      <td style={{ color: "var(--text-muted)", fontSize: "0.8rem" }}>{timeLabel}</td>
-                      <td style={{ maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: isExpanded ? "normal" : "nowrap", color: "var(--text-muted)", fontSize: "0.8rem" }}>
-                        {row.comments || "—"}
-                      </td>
-                    </tr>
+                    <React.Fragment key={sub.id}>
+                      <tr className={isExpanded ? "row-expanded" : ""}>
+                        <td>
+                          <div className="font-semibold">{formatDate(sub.date)}</div>
+                          {sub.shift && <span className="shift-pill">{sub.shift}</span>}
+                        </td>
+                        <td>
+                          <span>
+                            {sub.outlet?.icon} {sub.outlet?.name}
+                          </span>
+                        </td>
+                        <td>
+                          <div className="font-semibold">
+                            {sub.template?.icon} {sub.template?.title}
+                          </div>
+                          <span className="category-subtext">{sub.template?.category}</span>
+                        </td>
+                        <td>
+                          <span className="score-badge-table">{sub.complianceScore ?? 100}%</span>
+                        </td>
+                        <td>{sub.submittedBy?.name || "Staff Member"}</td>
+                        <td>
+                          {sub.supervisorSigned ? (
+                            <span className="signed-tag">✓ {sub.supervisorName || "Signed"}</span>
+                          ) : (
+                            <span className="unsigned-tag">Pending Sign-off</span>
+                          )}
+                        </td>
+                        <td>
+                          <span className={`status-pill ${sub.status.toLowerCase()}`}>
+                            {sub.status}
+                          </span>
+                        </td>
+                        <td>
+                          <button
+                            type="button"
+                            onClick={() => setExpandedId(isExpanded ? null : sub.id)}
+                            className="btn-details-toggle"
+                          >
+                            {isExpanded ? "Hide ▲" : "View Details ▼"}
+                          </button>
+                        </td>
+                      </tr>
+
+                      {isExpanded && (
+                        <tr className="expanded-details-row">
+                          <td colSpan={8}>
+                            <div className="details-panel">
+                              <div className="details-notes-grid">
+                                <div>
+                                  <strong>Supervisor Remarks:</strong>
+                                  <p>{sub.comments || "None"}</p>
+                                </div>
+                                <div>
+                                  <strong>Corrective Action (CAPA):</strong>
+                                  <p>{sub.correctiveAction || "None required"}</p>
+                                </div>
+                              </div>
+
+                              <div className="raw-data-preview">
+                                <strong>Log Data Payload:</strong>
+                                <pre>{JSON.stringify(sub.data, null, 2)}</pre>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                   );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

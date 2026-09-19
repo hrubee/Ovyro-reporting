@@ -31,28 +31,33 @@ export default function LoginPage() {
     }
   }
 
+  const handleQuickLogin = (demoEmail: string, demoPass: string) => {
+    setEmail(demoEmail);
+    setPassword(demoPass);
+  };
+
   return (
     <div className="login-page">
       <div className="login-bg-gradient" />
 
       <div className="login-card fade-in">
         <div className="login-logo">
-          <div className="login-logo-icon">🧹</div>
-          <h1>PNR Hygiene</h1>
-          <p>Hygiene Report Management System</p>
+          <div className="login-logo-icon">📋</div>
+          <h1>Reporting SaaS</h1>
+          <p>Multi-Tenant Audit, Hygiene & SOP Platform</p>
         </div>
 
         <form onSubmit={handleSubmit} className="login-form">
           {error && <div className="login-error">⚠️ {error}</div>}
 
           <div className="form-group">
-            <label htmlFor="email">Email Address</label>
+            <label htmlFor="email">Work Email Address</label>
             <input
               id="email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@pnr.com"
+              placeholder="admin@reporting.app"
               required
               autoFocus
             />
@@ -75,26 +80,30 @@ export default function LoginPage() {
             className="btn btn-primary login-btn"
             disabled={loading}
           >
-            {loading ? (
-              <>
-                <span className="pulse">⏳</span> Signing in...
-              </>
-            ) : (
-              <>🔐 Sign In</>
-            )}
+            {loading ? "Signing in..." : "🔐 Sign In to Workspace"}
           </button>
         </form>
 
-        <p
-          style={{
-            textAlign: "center",
-            marginTop: "1.5rem",
-            fontSize: "0.75rem",
-            color: "var(--text-muted)",
-          }}
-        >
-          Contact your administrator to get access.
-        </p>
+        {/* Quick Demo Credentials Bar */}
+        <div className="demo-credentials-box">
+          <span className="demo-title">Quick Demo Logins:</span>
+          <div className="demo-buttons-row">
+            <button
+              type="button"
+              onClick={() => handleQuickLogin("admin@reporting.app", "Admin@123")}
+              className="demo-pill-btn"
+            >
+              👑 Admin (admin@reporting.app)
+            </button>
+            <button
+              type="button"
+              onClick={() => handleQuickLogin("bharti@reporting.app", "Pnr@123")}
+              className="demo-pill-btn"
+            >
+              👷 Staff (bharti@reporting.app)
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -1,61 +1,49 @@
 import { auth } from "@/lib/auth";
-import { prisma, ensureDbSchema } from "@/lib/db";
+import { prisma } from "@/lib/db";
 import { redirect } from "next/navigation";
 import ReportsClient from "./ReportsClient";
 
 export default async function AdminReportsPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
-  const user = session.user as { role: string };
-  if (user.role !== "ADMIN") redirect("/dashboard");
 
-  await ensureDbSchema();
+  const user = session.user as { organizationId: string; role: string };
+  if (user.role !== "ORG_ADMIN" && user.role !== "SUPER_ADMIN" && user.role !== "ADMIN") {
+    redirect("/dashboard");
+  }
 
-  // Pull last 60 days of all entries across all outlets safely
-  const [
-    hygiene,
-    glass,
-    fridge,
-    kitchen,
-    production,
-    puffRoom,
-    cakeRoom,
-    oretaHygiene,
-    oretaEquipment,
-    oretaFridge,
-    oretaGlass,
-    oretaMonthly,
-  ] = await Promise.all([
-    prisma.hygieneEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }).catch(() => []),
-    prisma.glassEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }).catch(() => []),
-    prisma.fridgeEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }).catch(() => []),
-    prisma.kitchenEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }).catch(() => []),
-    prisma.productionEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }).catch(() => []),
-    prisma.puffRoomEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }).catch(() => []),
-    prisma.cakeRoomEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }).catch(() => []),
-    prisma.oretaHygieneEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }).catch(() => []),
-    prisma.oretaEquipmentEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }).catch(() => []),
-    prisma.oretaFridgeEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }).catch(() => []),
-    prisma.oretaGlassEntry.findMany({ orderBy: { date: "desc" }, take: 60, include: { submittedBy: { select: { name: true } } } }).catch(() => []),
-    prisma.oretaMonthlyEntry.findMany({ orderBy: { month: "desc" }, take: 24, include: { submittedBy: { select: { name: true } } } }).catch(() => []),
+  const [submissions, outlets, templates] = await Promise.all([
+    prisma.formSubmission.findMany({
+      where: { organizationId: user.organizationId },
+      orderBy: { createdAt: "desc" },
+      take: 200,
+      include: {
+        submittedBy: {
+          select: { name: true, email: true },
+        },
+        template: {
+          select: { id: true, slug: true, title: true, icon: true, category: true },
+        },
+        outlet: {
+          select: { id: true, name: true, code: true, icon: true },
+        },
+      },
+    }),
+    prisma.outlet.findMany({
+      where: { organizationId: user.organizationId },
+      select: { id: true, name: true, icon: true },
+    }),
+    prisma.formTemplate.findMany({
+      where: { organizationId: user.organizationId },
+      select: { id: true, title: true, icon: true, category: true, slug: true },
+    }),
   ]);
 
   return (
     <ReportsClient
-      data={{
-        hygiene: JSON.parse(JSON.stringify(hygiene)),
-        glass: JSON.parse(JSON.stringify(glass)),
-        fridge: JSON.parse(JSON.stringify(fridge)),
-        kitchen: JSON.parse(JSON.stringify(kitchen)),
-        production: JSON.parse(JSON.stringify(production)),
-        puffRoom: JSON.parse(JSON.stringify(puffRoom)),
-        cakeRoom: JSON.parse(JSON.stringify(cakeRoom)),
-        oretaHygiene: JSON.parse(JSON.stringify(oretaHygiene)),
-        oretaEquipment: JSON.parse(JSON.stringify(oretaEquipment)),
-        oretaFridge: JSON.parse(JSON.stringify(oretaFridge)),
-        oretaGlass: JSON.parse(JSON.stringify(oretaGlass)),
-        oretaMonthly: JSON.parse(JSON.stringify(oretaMonthly)),
-      }}
+      submissions={JSON.parse(JSON.stringify(submissions))}
+      outlets={JSON.parse(JSON.stringify(outlets))}
+      templates={JSON.parse(JSON.stringify(templates))}
     />
   );
 }

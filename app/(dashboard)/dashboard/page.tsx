@@ -1,73 +1,9 @@
 import { auth } from "@/lib/auth";
-import { prisma, ensureDbSchema } from "@/lib/db";
+import { prisma } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import Link from "next/link";
-import { SHEET_LABELS, SHEET_ROUTES, getTodayString, formatDate, SheetId } from "@/lib/permissions";
-import { OUTLETS, getOutletById } from "@/lib/outlets";
-
-const SHEET_ICONS: Record<SheetId, string> = {
-  HYGIENE_REPORT: "🧹",
-  GLASS_REPORT: "🪟",
-  FRIDGE_REPORT: "🧊",
-  KITCHEN: "🍳",
-  PRODUCTION: "🏭",
-  PUFF_ROOM: "🥐",
-  CAKE_ROOM: "🎂",
-  ORETA_HYGIENE: "🧹",
-  ORETA_SHOP_CLEANING: "🧹",
-  ORETA_EQUIPMENT: "⚙️",
-  ORETA_FRIDGE: "🧊",
-  ORETA_GLASS: "🪟",
-  ORETA_MONTHLY: "🗓️",
-};
-
-async function getTodayStatus(today: string) {
-  await ensureDbSchema();
-  const currentMonth = today.slice(0, 7);
-  const [
-    hygiene,
-    glass,
-    fridge,
-    kitchen,
-    production,
-    puffRoom,
-    cakeRoom,
-    oretaShopCleaning,
-    oretaEquipment,
-    oretaFridge,
-    oretaGlass,
-    oretaMonthly,
-  ] = await Promise.all([
-    prisma.hygieneEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }).catch(() => []),
-    prisma.glassEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }).catch(() => []),
-    prisma.fridgeEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }).catch(() => []),
-    prisma.kitchenEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }).catch(() => []),
-    prisma.productionEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }).catch(() => []),
-    prisma.puffRoomEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }).catch(() => []),
-    prisma.cakeRoomEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }).catch(() => []),
-    prisma.oretaHygieneEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }).catch(() => []),
-    prisma.oretaEquipmentEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }).catch(() => []),
-    prisma.oretaFridgeEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }).catch(() => []),
-    prisma.oretaGlassEntry.findMany({ where: { date: today }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }).catch(() => []),
-    prisma.oretaMonthlyEntry.findMany({ where: { month: currentMonth }, orderBy: { createdAt: "desc" }, include: { submittedBy: true } }).catch(() => []),
-  ]);
-
-  return {
-    hygiene,
-    glass,
-    fridge,
-    kitchen,
-    production,
-    puffRoom,
-    cakeRoom,
-    oretaShopCleaning,
-    oretaEquipment,
-    oretaFridge,
-    oretaGlass,
-    oretaMonthly,
-  };
-}
+import { getTodayString, formatDate } from "@/lib/permissions";
 
 interface PageProps {
   searchParams: Promise<{ outlet?: string }>;
@@ -76,200 +12,237 @@ interface PageProps {
 export default async function DashboardPage({ searchParams }: PageProps) {
   const session = await auth();
   if (!session?.user) redirect("/login");
-  const user = session.user as { id: string; name: string; role: string };
 
-  const resolvedParams = (await searchParams) || {};
-  const outletParam = resolvedParams.outlet;
-  const cookieStore = await cookies();
-  const activeOutletId = outletParam || cookieStore.get("pnr_outlet")?.value || "bakery";
-  const activeOutlet = getOutletById(activeOutletId);
-
-  const today = getTodayString();
-  const statuses = await getTodayStatus(today);
-
-  const allSheetsData: Record<SheetId, any[]> = {
-    HYGIENE_REPORT: statuses.hygiene,
-    GLASS_REPORT: statuses.glass,
-    FRIDGE_REPORT: statuses.fridge,
-    KITCHEN: statuses.kitchen,
-    PRODUCTION: statuses.production,
-    PUFF_ROOM: statuses.puffRoom,
-    CAKE_ROOM: statuses.cakeRoom,
-    ORETA_HYGIENE: statuses.oretaShopCleaning,
-    ORETA_SHOP_CLEANING: statuses.oretaShopCleaning,
-    ORETA_EQUIPMENT: statuses.oretaEquipment,
-    ORETA_FRIDGE: statuses.oretaFridge,
-    ORETA_GLASS: statuses.oretaGlass,
-    ORETA_MONTHLY: statuses.oretaMonthly,
+  const user = session.user as {
+    id: string;
+    name: string;
+    role: string;
+    organizationId: string;
+    organizationName?: string;
   };
 
-  // Filter sheets to only the active outlet's sheets
-  const outletSheets = activeOutlet.sheets.map((s) => ({
-    key: s.id as SheetId,
-    list: allSheetsData[s.id as SheetId] || [],
-    label: s.label,
-    icon: s.icon,
-    route: s.route,
-  }));
+  const resolvedParams = (await searchParams) || {};
+  const cookieStore = await cookies();
 
-  // Access list for employee
-  let accessibleSheets: Set<string> = new Set();
-  if (user.role === "ADMIN") {
-    accessibleSheets = new Set(Object.keys(SHEET_LABELS));
-  } else {
-    try {
-      const access = await prisma.sheetAccess.findMany({
-        where: { userId: user.id },
-        select: { sheet: true },
-      });
-      accessibleSheets = new Set(access.map((a: { sheet: string }) => a.sheet));
-    } catch {
-      accessibleSheets = new Set();
-    }
+  // Load all tenant outlets
+  const outlets = await prisma.outlet.findMany({
+    where: { organizationId: user.organizationId, isActive: true },
+    orderBy: { createdAt: "asc" },
+  });
+
+  if (outlets.length === 0) {
+    return (
+      <div className="empty-state-card">
+        <h2>No facilities configured</h2>
+        <p>Please add a facility or outlet from the Admin Console.</p>
+        <Link href="/admin/outlets" className="btn-create-primary">
+          Configure Outlets
+        </Link>
+      </div>
+    );
   }
 
-  const totalSheetsInOutlet = outletSheets.length;
-  const completedSheetsCount = outletSheets.filter((s) => s.list.length > 0).length;
-  const totalSubmissionsToday = outletSheets.reduce((acc, s) => acc + s.list.length, 0);
+  const selectedOutletId =
+    resolvedParams.outlet ||
+    cookieStore.get("pnr_outlet")?.value ||
+    outlets[0]?.id;
 
-  const userName = user?.name || "User";
-  const firstName = userName.split(" ")[0] || "User";
+  const currentOutlet =
+    outlets.find((o) => o.id === selectedOutletId) || outlets[0];
+
+  const today = getTodayString();
+
+  // Fetch dynamic templates assigned to current outlet
+  const outletTemplates = await prisma.outletTemplate.findMany({
+    where: { outletId: currentOutlet.id, isEnabled: true },
+    include: {
+      template: true,
+    },
+    orderBy: { order: "asc" },
+  });
+
+  // Fetch today's submissions for this outlet
+  const todaySubmissions = await prisma.formSubmission.findMany({
+    where: {
+      outletId: currentOutlet.id,
+      date: today,
+    },
+    include: {
+      submittedBy: { select: { name: true } },
+      template: { select: { id: true, slug: true, title: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const submissionMap = new Map<string, any[]>();
+  todaySubmissions.forEach((sub) => {
+    const arr = submissionMap.get(sub.templateId) || [];
+    arr.push(sub);
+    submissionMap.set(sub.templateId, arr);
+  });
+
+  const totalTemplates = outletTemplates.length;
+  const completedCount = outletTemplates.filter((ot) => submissionMap.has(ot.templateId)).length;
+  const completionPercentage = totalTemplates > 0 ? Math.round((completedCount / totalTemplates) * 100) : 100;
+
+  // Recent 10 submissions across all outlets for this tenant
+  const recentFeed = await prisma.formSubmission.findMany({
+    where: { organizationId: user.organizationId },
+    take: 8,
+    orderBy: { createdAt: "desc" },
+    include: {
+      submittedBy: { select: { name: true } },
+      template: { select: { title: true, icon: true } },
+      outlet: { select: { name: true, icon: true } },
+    },
+  });
 
   return (
-    <div className="page-container fade-in">
-      {/* Header */}
-      <div className="page-header" style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "flex-end", gap: "1rem" }}>
-        <div className="page-header-text">
-          <h1>👋 Good day, {firstName}!</h1>
-          <p>
-            Current Sub-Account: <strong>{activeOutlet.icon} {activeOutlet.name}</strong> · {formatDate(today)}
+    <div className="dashboard-container">
+      {/* Welcome Banner */}
+      <div className="dashboard-hero-banner">
+        <div className="hero-left">
+          <span className="hero-date-badge">📅 {formatDate(today)}</span>
+          <h1 className="hero-title">
+            Welcome back, {user.name || "Operator"}!
+          </h1>
+          <p className="hero-subtitle">
+            {user.organizationName || "Audit Management"} • Daily Operations & Food Safety Compliance
           </p>
         </div>
 
-        {/* Outlet Switcher Pills */}
-        <div style={{ display: "flex", gap: "0.5rem", background: "#ffffff", padding: "0.35rem", borderRadius: "10px", border: "1px solid var(--border)" }}>
-          {OUTLETS.map((out) => {
-            const isActive = out.id === activeOutlet.id;
-            return (
-              <Link
-                key={out.id}
-                href={`/dashboard?outlet=${out.id}`}
-                className={`btn btn-sm ${isActive ? "btn-primary" : "btn-secondary"}`}
-                style={{ padding: "0.4rem 0.85rem", fontSize: "0.85rem" }}
-              >
-                {out.icon} {out.name}
-              </Link>
-            );
-          })}
+        <div className="hero-right">
+          <div className="outlet-pill-badge">
+            <span className="pill-icon">{currentOutlet.icon}</span>
+            <div className="pill-details">
+              <span className="pill-title">{currentOutlet.name}</span>
+              <span className="pill-type">{currentOutlet.type}</span>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="stats-grid">
-        <div className="stat-card">
-          <div className="stat-icon blue">📋</div>
+      {/* KPI Stats Row */}
+      <div className="dashboard-kpi-grid">
+        <div className="kpi-box">
+          <div className="kpi-icon-wrap green">✓</div>
           <div>
-            <div className="stat-value">
-              {completedSheetsCount}/{totalSheetsInOutlet}
-            </div>
-            <div className="stat-label">{activeOutlet.name} Sheets Completed</div>
+            <span className="kpi-num">{completedCount}/{totalTemplates}</span>
+            <span className="kpi-label">Today's Checklists Done</span>
           </div>
         </div>
-        <div className="stat-card">
-          <div className="stat-icon green">📝</div>
+
+        <div className="kpi-box">
+          <div className="kpi-icon-wrap blue">📈</div>
           <div>
-            <div className="stat-value">{totalSubmissionsToday}</div>
-            <div className="stat-label">Total Entries Recorded Today</div>
+            <span className="kpi-num">{completionPercentage}%</span>
+            <span className="kpi-label">Facility Completion Rate</span>
           </div>
         </div>
-        <div className="stat-card">
-          <div className="stat-icon amber">⏳</div>
+
+        <div className="kpi-box">
+          <div className="kpi-icon-wrap amber">🛡️</div>
           <div>
-            <div className="stat-value">{totalSheetsInOutlet - completedSheetsCount}</div>
-            <div className="stat-label">Pending {activeOutlet.name} Sheets</div>
+            <span className="kpi-num">
+              {todaySubmissions.filter((s) => s.status === "VERIFIED" || s.supervisorSigned).length}
+            </span>
+            <span className="kpi-label">Supervisor Verified</span>
           </div>
         </div>
-        {user.role === "ADMIN" && (
-          <div className="stat-card">
-            <div className="stat-icon blue">👥</div>
-            <div>
-              <div className="stat-value">
-                {totalSheetsInOutlet > 0 ? Math.round((completedSheetsCount / totalSheetsInOutlet) * 100) : 0}%
+
+        <div className="kpi-box">
+          <div className="kpi-icon-wrap purple">🏢</div>
+          <div>
+            <span className="kpi-num">{outlets.length}</span>
+            <span className="kpi-label">Active Facilities</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content Grid: Checklists + Recent Activity */}
+      <div className="dashboard-grid-layout">
+        {/* Left: Active Checklists for the Selected Outlet */}
+        <div className="dashboard-left-col">
+          <div className="section-title-bar">
+            <h2>Today's Checklists & SOPs</h2>
+            <span className="sub-hint">Click any sheet to fill or update today's logs</span>
+          </div>
+
+          <div className="checklists-cards-grid">
+            {outletTemplates.length === 0 ? (
+              <div className="empty-card">
+                <p>No checklists assigned to {currentOutlet.name}.</p>
+                <Link href="/admin/templates" className="btn-secondary-link">
+                  Manage Checklists in Admin Console
+                </Link>
               </div>
-              <div className="stat-label">Daily Compliance Rate</div>
-            </div>
-          </div>
-        )}
-      </div>
+            ) : (
+              outletTemplates.map((ot) => {
+                const tpl = ot.template;
+                const subs = submissionMap.get(tpl.id) || [];
+                const isDone = subs.length > 0;
+                const latestSub = subs[0];
 
-      {/* Today's Sheet Status */}
-      <div className="card">
-        <div className="card-header">
-          <div>
-            <div className="card-title">
-              📅 {activeOutlet.name} — Today&apos;s Compliance Status
-            </div>
-            <div className="card-subtitle">{formatDate(today)}</div>
-          </div>
-          <div
-            className="badge"
-            style={
-              completedSheetsCount === totalSheetsInOutlet
-                ? { background: "var(--success-bg)", color: "var(--success)" }
-                : { background: "var(--warning-bg)", color: "var(--warning)" }
-            }
-          >
-            {completedSheetsCount} / {totalSheetsInOutlet} Completed
+                return (
+                  <Link
+                    key={tpl.id}
+                    href={`/${currentOutlet.id}/${tpl.slug}`}
+                    className={`checklist-card ${isDone ? "is-done" : "is-pending"}`}
+                  >
+                    <div className="checklist-card-top">
+                      <span className="card-icon">{tpl.icon || "📋"}</span>
+                      <span className={`status-tag ${isDone ? "done" : "pending"}`}>
+                        {isDone ? "✓ Logged" : "⏳ Pending"}
+                      </span>
+                    </div>
+
+                    <h3 className="card-title">{tpl.title}</h3>
+                    <p className="card-desc">
+                      {tpl.description || `${tpl.frequency} inspection checklist`}
+                    </p>
+
+                    <div className="card-footer-meta">
+                      {isDone ? (
+                        <span>
+                          By {latestSub.submittedBy?.name || "Staff"} • {latestSub.complianceScore ?? 100}% Score
+                        </span>
+                      ) : (
+                        <span>Due today • Click to record</span>
+                      )}
+                    </div>
+                  </Link>
+                );
+              })
+            )}
           </div>
         </div>
 
-        <div className="status-grid">
-          {outletSheets.map(({ key, list, label, icon, route }) => {
-            const hasAccess = user.role === "ADMIN" || accessibleSheets.has(key);
-            const isDone = list.length > 0;
-            const latest = list[0];
-            const latestTime = latest
-              ? new Date(latest.createdAt).toLocaleTimeString("en-IN", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })
-              : null;
+        {/* Right: Live Activity Stream */}
+        <div className="dashboard-right-col">
+          <div className="section-title-bar">
+            <h2>Live Audit Stream</h2>
+          </div>
 
-            return (
-              <Link
-                key={key}
-                href={hasAccess ? route : "#"}
-                className={`status-card ${isDone ? "submitted" : "pending"} ${
-                  !hasAccess ? "no-access" : ""
-                }`}
-                style={!hasAccess ? { opacity: 0.35, pointerEvents: "none" } : {}}
-              >
-                <div className={`status-dot ${isDone ? "submitted" : "pending"}`}>
-                  {icon || SHEET_ICONS[key]}
-                </div>
-                <div className="status-info">
-                  <div className="status-name">{label}</div>
-                  <div className="status-meta">
-                    {!hasAccess ? (
-                      "No access"
-                    ) : isDone ? (
-                      <span>
-                        ✓ {list.length} {list.length === 1 ? "entry" : "entries"} (latest by{" "}
-                        <strong>{latest.submittedBy.name}</strong> @ {latestTime})
-                      </span>
-                    ) : (
-                      "⏳ Not yet submitted"
-                    )}
+          <div className="activity-stream-card">
+            {recentFeed.length === 0 ? (
+              <p className="no-activity-text">No recent submissions recorded yet.</p>
+            ) : (
+              recentFeed.map((entry) => (
+                <div key={entry.id} className="stream-item">
+                  <div className="stream-icon">{entry.template?.icon || "📋"}</div>
+                  <div className="stream-info">
+                    <span className="stream-title">
+                      {entry.template?.title} ({entry.outlet?.name})
+                    </span>
+                    <span className="stream-by">
+                      Logged by {entry.submittedBy?.name || "Staff"} • {entry.complianceScore ?? 100}% Score
+                    </span>
                   </div>
+                  <span className="stream-date">{entry.date}</span>
                 </div>
-                {hasAccess && (
-                  <span className="status-arrow">
-                    {isDone ? "👁" : "→"}
-                  </span>
-                )}
-              </Link>
-            );
-          })}
+              ))
+            )}
+          </div>
         </div>
       </div>
     </div>

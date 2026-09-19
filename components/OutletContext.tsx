@@ -1,68 +1,114 @@
 "use client";
+
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { OUTLETS, DEFAULT_OUTLET, OutletConfig, getOutletById } from "@/lib/outlets";
+
+export interface OutletData {
+  id: string;
+  name: string;
+  code?: string | null;
+  type?: string;
+  icon: string;
+  shifts?: string[];
+  templates?: Array<{
+    id: string;
+    slug: string;
+    title: string;
+    category: string;
+    icon: string;
+    description?: string | null;
+  }>;
+}
 
 interface OutletContextType {
-  activeOutlet: OutletConfig;
+  activeOutlet: OutletData | null;
   setOutlet: (outletId: string) => void;
-  outlets: OutletConfig[];
+  outlets: OutletData[];
+  loading: boolean;
+  refreshOutlets: () => Promise<void>;
 }
 
 const OutletContext = createContext<OutletContextType>({
-  activeOutlet: DEFAULT_OUTLET,
+  activeOutlet: null,
   setOutlet: () => {},
-  outlets: OUTLETS,
+  outlets: [],
+  loading: true,
+  refreshOutlets: async () => {},
 });
 
 export function OutletProvider({
   children,
   initialOutletId,
+  initialOutlets = [],
 }: {
   children: React.ReactNode;
   initialOutletId?: string;
+  initialOutlets?: OutletData[];
 }) {
   const router = useRouter();
   const pathname = usePathname();
+  const [outlets, setOutlets] = useState<OutletData[]>(initialOutlets);
   const [activeOutletId, setActiveOutletId] = useState<string>(
-    initialOutletId || DEFAULT_OUTLET.id
+    initialOutletId || initialOutlets[0]?.id || ""
   );
+  const [loading, setLoading] = useState<boolean>(initialOutlets.length === 0);
 
-  // Sync if route belongs specifically to an outlet
-  useEffect(() => {
-    if (pathname.startsWith("/oreta")) {
-      setActiveOutletId("oreta-world");
-    } else if (
-      pathname.startsWith("/hygiene") ||
-      pathname.startsWith("/glass") ||
-      pathname.startsWith("/fridge") ||
-      pathname.startsWith("/kitchen") ||
-      pathname.startsWith("/production") ||
-      pathname.startsWith("/puff-room") ||
-      pathname.startsWith("/cake-room")
-    ) {
-      setActiveOutletId("bakery");
+  const fetchOutlets = async () => {
+    try {
+      const res = await fetch("/api/admin/outlets");
+      if (res.ok) {
+        const data = await res.json();
+        const mapped = (data.outlets || []).map((o: any) => ({
+          id: o.id,
+          name: o.name,
+          code: o.code,
+          type: o.type,
+          icon: o.icon || "📍",
+          shifts: o.shifts,
+          templates: (o.outletTemplates || []).map((ot: any) => ot.template),
+        }));
+        setOutlets(mapped);
+        if (!activeOutletId && mapped.length > 0) {
+          setActiveOutletId(mapped[0].id);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to load outlets", e);
+    } finally {
+      setLoading(false);
     }
-  }, [pathname]);
+  };
+
+  useEffect(() => {
+    fetchOutlets();
+  }, []);
 
   const setOutlet = (outletId: string) => {
     setActiveOutletId(outletId);
     document.cookie = `pnr_outlet=${outletId}; path=/; max-age=31536000; SameSite=Lax`;
     
-    // If we are on a specific sheet page of another outlet, switch gracefully
-    if (outletId === "oreta-world" && !pathname.startsWith("/oreta") && !pathname.startsWith("/admin")) {
-      router.push("/oreta/hygiene");
-    } else if (outletId === "bakery" && pathname.startsWith("/oreta")) {
-      router.push("/dashboard");
+    // Find target outlet
+    const target = outlets.find((o) => o.id === outletId);
+    if (target && target.templates && target.templates.length > 0) {
+      const firstTemplate = target.templates[0];
+      router.push(`/${target.id}/${firstTemplate.slug}`);
     } else {
-      router.refresh();
+      router.push("/dashboard");
     }
   };
 
-  const activeOutlet = getOutletById(activeOutletId);
+  const activeOutlet = outlets.find((o) => o.id === activeOutletId) || outlets[0] || null;
 
   return (
-    <OutletContext.Provider value={{ activeOutlet, setOutlet, outlets: OUTLETS }}>
+    <OutletContext.Provider
+      value={{
+        activeOutlet,
+        setOutlet,
+        outlets,
+        loading,
+        refreshOutlets: fetchOutlets,
+      }}
+    >
       {children}
     </OutletContext.Provider>
   );

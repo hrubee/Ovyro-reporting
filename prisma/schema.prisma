@@ -3,273 +3,189 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("database_DATABASE_URL")
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
 }
 
-// Role: "ADMIN" | "EMPLOYEE"
-// Sheet: "HYGIENE_REPORT" | "GLASS_REPORT" | "FRIDGE_REPORT" | "KITCHEN" | "PRODUCTION" | "PUFF_ROOM" | "CAKE_ROOM"
+// ─── MULTI-TENANT CORE ─────────────────────────────────────────────────────────
+
+model Organization {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  logoUrl     String?
+  plan        String   @default("STARTER") // TRIAL | STARTER | PRO | ENTERPRISE
+  status      String   @default("ACTIVE")  // ACTIVE | SUSPENDED | CANCELLED
+  settings    String   @default("{}")      // Timezone, shift timings, branding, custom roles (JSON)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users       User[]
+  outlets     Outlet[]
+  templates   FormTemplate[]
+  submissions FormSubmission[]
+  roles       CustomRole[]
+}
+
+model CustomRole {
+  id             String       @id @default(cuid())
+  organizationId String
+  name           String       // e.g. "Head Chef", "Sanitation Supervisor", "Line Operator", "Store Manager"
+  description    String?
+  permissions    String       @default("[\"submit_checklists\"]") // JSON array of permission strings
+  isSystem       Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  users          User[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+}
+
+model Outlet {
+  id             String        @id @default(cuid())
+  organizationId String
+  name           String
+  code           String?       // e.g. "MUM-01", "OUT-BKR"
+  type           String        @default("RESTAURANT") // RESTAURANT, BAKERY, FACTORY, WAREHOUSE, CLOUD_KITCHEN
+  address        String?
+  icon           String        @default("📍")
+  shifts         String        @default("[\"Morning\", \"Afternoon\", \"Evening\", \"Night\"]") // JSON array
+  isActive       Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userOutlets    UserOutlet[]
+  outletTemplates OutletTemplate[]
+  submissions    FormSubmission[]
+
+  @@index([organizationId])
+}
 
 model User {
-  id           String   @id @default(cuid())
-  name         String
-  email        String   @unique
-  passwordHash String
-  role         String   @default("EMPLOYEE")
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id             String        @id @default(cuid())
+  organizationId String
+  name           String
+  email          String        @unique
+  passwordHash   String
+  role           String        @default("OPERATOR") // Base role: ORG_ADMIN, MANAGER, SUPERVISOR, OPERATOR
+  customRoleId   String?
+  permissions    String        @default("[\"submit_checklists\"]") // Granular permission keys JSON
+  isActive       Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
-  sheetAccess       SheetAccess[]
-  hygieneEntries    HygieneEntry[]
-  glassEntries      GlassEntry[]
-  fridgeEntries     FridgeEntry[]
-  kitchenEntries    KitchenEntry[]
-  productionEntries ProductionEntry[]
-  puffRoomEntries   PuffRoomEntry[]
-  cakeRoomEntries       CakeRoomEntry[]
-  oretaHygieneEntries   OretaHygieneEntry[]
-  oretaEquipmentEntries OretaEquipmentEntry[]
-  oretaFridgeEntries    OretaFridgeEntry[]
-  oretaGlassEntries     OretaGlassEntry[]
-  oretaMonthlyEntries   OretaMonthlyEntry[]
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customRole     CustomRole?   @relation(fields: [customRoleId], references: [id], onDelete: SetNull)
+  userOutlets    UserOutlet[]
+  templateAccess UserTemplateAccess[]
+  submissions    FormSubmission[]
+
+  @@index([organizationId])
+  @@index([customRoleId])
 }
 
-model SheetAccess {
+model UserOutlet {
   id        String   @id @default(cuid())
   userId    String
-  sheet     String
-  grantedAt DateTime @default(now())
+  outletId  String
+  role      String   @default("OPERATOR")
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  outlet    Outlet   @relation(fields: [outletId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, sheet])
+  @@unique([userId, outletId])
+  @@index([userId])
+  @@index([outletId])
 }
 
-// ─── HYGIENE REPORT ───────────────────────────────────────────────────────────
-model HygieneEntry {
-  id            String   @id @default(cuid())
-  date          String
-  day           String
-  submittedById String
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+model UserTemplateAccess {
+  id         String       @id @default(cuid())
+  userId     String
+  templateId String
+  canSubmit  Boolean      @default(true)
+  canVerify  Boolean      @default(false)
 
-  areaChecks       String
-  supervisorName   String @default("")
-  comments         String @default("")
-  correctiveAction String @default("")
+  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  template   FormTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
 
-  submittedBy User @relation(fields: [submittedById], references: [id])
-
-  @@index([date])
+  @@unique([userId, templateId])
+  @@index([userId])
+  @@index([templateId])
 }
 
-// ─── GLASS REPORT ─────────────────────────────────────────────────────────────
-model GlassEntry {
-  id            String   @id @default(cuid())
-  date          String
-  submittedById String
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+// ─── DYNAMIC FORM TEMPLATES ───────────────────────────────────────────────────
 
-  locationChecks   String
-  supervisorName   String @default("")
-  comments         String @default("")
-  correctiveAction String @default("")
+model FormTemplate {
+  id             String           @id @default(cuid())
+  organizationId String
+  title          String
+  slug           String
+  category       String           @default("CUSTOM")
+  icon           String           @default("📋")
+  description    String?
+  frequency      String           @default("DAILY")
+  version        Int              @default(1)
+  isArchived     Boolean          @default(false)
+  schema         String           @default("{\"sections\":[]}") // Dynamic JSON config
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
 
-  submittedBy User @relation(fields: [submittedById], references: [id])
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  outletTemplates OutletTemplate[]
+  userAccess     UserTemplateAccess[]
+  submissions    FormSubmission[]
 
-  @@index([date])
+  @@unique([organizationId, slug])
+  @@index([organizationId])
 }
 
-// ─── FRIDGE REPORT ────────────────────────────────────────────────────────────
-model FridgeEntry {
-  id            String   @id @default(cuid())
-  date          String
-  supervisedBy  String   @default("")
-  submittedById String
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+model OutletTemplate {
+  id         String       @id @default(cuid())
+  outletId   String
+  templateId String
+  order      Int          @default(0)
+  isEnabled  Boolean      @default(true)
 
-  fridgeChecks     String
-  hygiene          String @default("")
-  comments         String @default("")
-  correctiveAction String @default("")
+  outlet     Outlet       @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  template   FormTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
 
-  submittedBy User @relation(fields: [submittedById], references: [id])
-
-  @@index([date])
+  @@unique([outletId, templateId])
+  @@index([outletId])
+  @@index([templateId])
 }
 
-// ─── KITCHEN ──────────────────────────────────────────────────────────────────
-model KitchenEntry {
-  id            String   @id @default(cuid())
-  date          String
-  submittedById String
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+// ─── DYNAMIC SUBMISSIONS & AUDIT LOG ──────────────────────────────────────────
 
-  equipmentChecks  String
-  supervisorName   String @default("")
-  workerName       String @default("")
-  comments         String @default("")
-  correctiveAction String @default("")
-
-  submittedBy User @relation(fields: [submittedById], references: [id])
-
-  @@index([date])
-}
-
-// ─── PRODUCTION ───────────────────────────────────────────────────────────────
-model ProductionEntry {
-  id            String   @id @default(cuid())
-  date          String
-  submittedById String
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  equipmentChecks  String
-  supervisorName   String @default("")
-  workerName       String @default("")
-  comments         String @default("")
-  correctiveAction String @default("")
-
-  submittedBy User @relation(fields: [submittedById], references: [id])
-
-  @@index([date])
-}
-
-// ─── PUFF ROOM ────────────────────────────────────────────────────────────────
-model PuffRoomEntry {
-  id            String   @id @default(cuid())
-  date          String
-  submittedById String
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  equipmentChecks  String
-  supervisorName   String @default("")
-  workerName       String @default("")
-  comments         String @default("")
-  correctiveAction String @default("")
-
-  submittedBy User @relation(fields: [submittedById], references: [id])
-
-  @@index([date])
-}
-
-// ─── CAKE ROOM ────────────────────────────────────────────────────────────────
-model CakeRoomEntry {
-  id            String   @id @default(cuid())
-  date          String
-  submittedById String
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  equipmentChecks  String
-  supervisorName   String @default("")
-  workerName       String @default("")
-  comments         String @default("")
-  correctiveAction String @default("")
-
-  submittedBy User @relation(fields: [submittedById], references: [id])
-
-  @@index([date])
-}
-
-// ─── ORETA WORLD HYGIENE & CLEANING SOP ───────────────────────────────────────
-model OretaHygieneEntry {
-  id               String   @id @default(cuid())
-  date             String
-  day              String
+model FormSubmission {
+  id               String       @id @default(cuid())
+  organizationId   String
+  outletId         String
+  templateId       String
+  templateVersion  Int          @default(1)
+  date             String       // YYYY-MM-DD or YYYY-MM for monthly
+  shift            String?      // Morning, Afternoon, Evening, Night, or null
   submittedById    String
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  supervisorName   String       @default("")
+  supervisorSigned Boolean      @default(false)
+  signatureData    String?
+  complianceScore  Float?       // 0-100% compliance calculated
+  data             String       @default("{}") // Dynamic JSON payload of completed checks
+  comments         String       @default("")
+  correctiveAction String       @default("")
+  status           String       @default("SUBMITTED") // DRAFT, SUBMITTED, VERIFIED, FLAGGED
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
 
-  areaChecks       String   // JSON array of 12 areas, each having checks for morning, afternoon, evening, night
-  supervisorName   String   @default("")
-  comments         String   @default("")
-  correctiveAction String   @default("")
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  outlet           Outlet       @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  template         FormTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  submittedBy      User         @relation(fields: [submittedById], references: [id])
 
-  submittedBy User @relation(fields: [submittedById], references: [id])
-
-  @@index([date])
+  @@index([organizationId, outletId, date])
+  @@index([outletId, templateId, date])
+  @@index([submittedById])
 }
-
-// ─── ORETA WORLD EQUIPMENT CLEANING ───────────────────────────────────────────
-model OretaEquipmentEntry {
-  id               String   @id @default(cuid())
-  date             String
-  submittedById    String
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  equipmentChecks  String   // JSON array of 41 equipment checks (status, time, cleanedBy, checkedBy)
-  supervisorName   String   @default("")
-  comments         String   @default("")
-  correctiveAction String   @default("")
-
-  submittedBy User @relation(fields: [submittedById], references: [id])
-
-  @@index([date])
-}
-
-// ─── ORETA WORLD FRIDGE & TEMPERATURE REPORT ──────────────────────────────────
-model OretaFridgeEntry {
-  id               String   @id @default(cuid())
-  date             String
-  supervisedBy     String   @default("")
-  submittedById    String
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  fridgeChecks     String   // JSON array of 7 fridge/freezer & cake display units
-  hygiene          String   @default("")
-  comments         String   @default("")
-  correctiveAction String   @default("")
-
-  submittedBy User @relation(fields: [submittedById], references: [id])
-
-  @@index([date])
-}
-
-// ─── ORETA WORLD GLASS REPORT ─────────────────────────────────────────────────
-model OretaGlassEntry {
-  id               String   @id @default(cuid())
-  date             String
-  submittedById    String
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  locationChecks   String   // JSON array of 6 glass panels (Ground Floor 1-4, Mezzanine 1-2)
-  supervisorName   String   @default("")
-  comments         String   @default("")
-  correctiveAction String   @default("")
-
-  submittedBy User @relation(fields: [submittedById], references: [id])
-
-  @@index([date])
-}
-
-// ─── ORETA WORLD MONTHLY CLEANING & MAINTENANCE ───────────────────────────────
-model OretaMonthlyEntry {
-  id               String   @id @default(cuid())
-  month            String   // YYYY-MM
-  date             String
-  submittedById    String
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  taskChecks       String   // JSON array of 6 monthly maintenance tasks
-  supervisorName   String   @default("")
-  comments         String   @default("")
-  correctiveAction String   @default("")
-
-  submittedBy User @relation(fields: [submittedById], references: [id])
-
-  @@index([month])
-  @@index([date])
-}
-
-
