@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
+import { userHasPermission } from "@/lib/permissions";
 
 function safeJson(val: any, fallback: any = {}) {
   if (typeof val !== "string") return val ?? fallback;
@@ -31,6 +32,9 @@ export async function GET(req: NextRequest) {
             },
           },
         },
+        _count: {
+          select: { submissions: true },
+        },
       },
     });
 
@@ -51,20 +55,38 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const user = session.user as { organizationId: string; role: string };
-  if (user.role !== "ORG_ADMIN" && user.role !== "SUPER_ADMIN" && user.role !== "ADMIN") {
-    return NextResponse.json({ error: "Forbidden: Admin access required" }, { status: 403 });
+  const user = session.user as { organizationId: string; role: string; permissions?: string[] };
+  const canManage =
+    user.role === "ORG_ADMIN" ||
+    user.role === "SUPER_ADMIN" ||
+    user.role === "ADMIN" ||
+    userHasPermission(user.permissions, "manage_templates", user.role);
+
+  if (!canManage) {
+    return NextResponse.json({ error: "Forbidden: Manage templates permission required" }, { status: 403 });
   }
 
   try {
     const body = await req.json();
     const { title, slug, category, icon, description, frequency, schema, outletIds } = body;
 
-    if (!title || !slug) {
-      return NextResponse.json({ error: "Title and slug are required" }, { status: 400 });
+    if (!title) {
+      return NextResponse.json({ error: "Template title is required" }, { status: 400 });
     }
 
-    const cleanSlug = slug.toLowerCase().trim().replace(/[^a-z0-9_-]/g, "-");
+    let cleanSlug = (slug || title)
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9_-]/g, "-");
+
+    // Check if slug already exists in this organization
+    const existingSlug = await prisma.formTemplate.findFirst({
+      where: { organizationId: user.organizationId, slug: cleanSlug },
+    });
+
+    if (existingSlug) {
+      cleanSlug = `${cleanSlug}-${Date.now().toString().slice(-4)}`;
+    }
 
     const template = await prisma.formTemplate.create({
       data: {
@@ -81,11 +103,12 @@ export async function POST(req: NextRequest) {
 
     // Assign to outlets if provided
     if (Array.isArray(outletIds) && outletIds.length > 0) {
-      for (const outletId of outletIds) {
+      for (const [idx, outletId] of outletIds.entries()) {
         await prisma.outletTemplate.create({
           data: {
             outletId,
             templateId: template.id,
+            order: idx,
             isEnabled: true,
           },
         });

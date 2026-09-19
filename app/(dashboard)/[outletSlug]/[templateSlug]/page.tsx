@@ -3,6 +3,15 @@ import { prisma } from "@/lib/db";
 import { redirect, notFound } from "next/navigation";
 import DynamicFormRenderer from "@/components/DynamicFormRenderer";
 
+function safeJson(val: any, fallback: any = {}) {
+  if (typeof val !== "string") return val ?? fallback;
+  try {
+    return JSON.parse(val);
+  } catch {
+    return fallback;
+  }
+}
+
 interface PageProps {
   params: Promise<{
     outletSlug: string;
@@ -72,6 +81,9 @@ export default async function DynamicSheetPage({ params }: PageProps) {
 
   const availableStaff = staff.map((s) => s.name).filter(Boolean);
 
+  const parsedShifts = safeJson(activeOutlet.shifts, ["Morning", "Evening"]);
+  const parsedSchema = safeJson(template.schema, { sections: [] });
+
   return (
     <div className="dynamic-sheet-page">
       <DynamicFormRenderer
@@ -80,7 +92,7 @@ export default async function DynamicSheetPage({ params }: PageProps) {
           name: activeOutlet.name,
           code: activeOutlet.code,
           icon: activeOutlet.icon,
-          shifts: Array.isArray(activeOutlet.shifts) ? (activeOutlet.shifts as string[]) : ["Morning", "Evening"],
+          shifts: Array.isArray(parsedShifts) ? parsedShifts : ["Morning", "Evening"],
         }}
         template={{
           id: template.id,
@@ -90,7 +102,7 @@ export default async function DynamicSheetPage({ params }: PageProps) {
           icon: template.icon,
           description: template.description,
           frequency: template.frequency,
-          schema: template.schema,
+          schema: parsedSchema,
         }}
         currentUser={{
           id: user.id,
@@ -103,3 +115,4 @@ export default async function DynamicSheetPage({ params }: PageProps) {
     </div>
   );
 }
+

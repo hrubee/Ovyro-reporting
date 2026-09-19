@@ -53,16 +53,27 @@ export default function DynamicFormRenderer({
   const router = useRouter();
   const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
+  const parsedSchema = useMemo(() => {
+    if (!template.schema) return { sections: [] };
+    if (typeof template.schema === "string") {
+      try {
+        return JSON.parse(template.schema);
+      } catch {
+        return { sections: [] };
+      }
+    }
+    return template.schema;
+  }, [template.schema]);
 
   const availableShifts = useMemo(() => {
-    if (template.schema?.shifts && Array.isArray(template.schema.shifts)) {
-      return template.schema.shifts;
+    if (parsedSchema?.shifts && Array.isArray(parsedSchema.shifts)) {
+      return parsedSchema.shifts;
     }
     if (outlet.shifts && Array.isArray(outlet.shifts)) {
       return outlet.shifts;
     }
     return ["Morning", "Afternoon", "Evening", "Night"];
-  }, [template.schema, outlet.shifts]);
+  }, [parsedSchema, outlet.shifts]);
 
   const [selectedShift, setSelectedShift] = useState<string>(availableShifts[0] || "General");
 
@@ -109,7 +120,7 @@ export default function DynamicFormRenderer({
             setSupervisorSigned(!!matching.supervisorSigned);
           } else {
             setExistingSubmissionId(null);
-            setFormData(getInitialDataForSchema(template.schema, template.category));
+            setFormData(getInitialDataForSchema(parsedSchema, template.category));
             setComments("");
             setCorrectiveAction("");
             setSupervisorSigned(false);
@@ -126,7 +137,7 @@ export default function DynamicFormRenderer({
     return () => {
       isCancelled = true;
     };
-  }, [outlet.id, template.id, template.category, template.frequency, template.schema, selectedDate, selectedShift]);
+  }, [outlet.id, template.id, template.category, template.frequency, parsedSchema, selectedDate, selectedShift]);
 
   function getInitialDataForSchema(schema: any, category: string) {
     const sections = schema?.sections || [];
@@ -267,7 +278,7 @@ export default function DynamicFormRenderer({
     }
   };
 
-  const sections = template.schema?.sections || [];
+  const sections = parsedSchema?.sections || [];
 
   return (
     <div className="dynamic-sheet-container">

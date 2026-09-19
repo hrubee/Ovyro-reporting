@@ -3,6 +3,15 @@ import { prisma } from "@/lib/db";
 import { redirect } from "next/navigation";
 import TemplateManagerClient from "./TemplateManagerClient";
 
+function safeJson(val: any, fallback: any = {}) {
+  if (typeof val !== "string") return val ?? fallback;
+  try {
+    return JSON.parse(val);
+  } catch {
+    return fallback;
+  }
+}
+
 export default async function AdminTemplatesPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
@@ -12,7 +21,7 @@ export default async function AdminTemplatesPage() {
     redirect("/dashboard");
   }
 
-  const [templates, outlets] = await Promise.all([
+  const [rawTemplates, rawOutlets] = await Promise.all([
     prisma.formTemplate.findMany({
       where: { organizationId: user.organizationId, isArchived: false },
       orderBy: { createdAt: "desc" },
@@ -27,9 +36,20 @@ export default async function AdminTemplatesPage() {
     }),
     prisma.outlet.findMany({
       where: { organizationId: user.organizationId, isActive: true },
-      select: { id: true, name: true, icon: true },
+      select: { id: true, name: true, icon: true, shifts: true },
+      orderBy: { createdAt: "asc" },
     }),
   ]);
+
+  const templates = rawTemplates.map((t) => ({
+    ...t,
+    schema: safeJson(t.schema, { sections: [] }),
+  }));
+
+  const outlets = rawOutlets.map((o) => ({
+    ...o,
+    shifts: safeJson(o.shifts, ["Morning", "Evening"]),
+  }));
 
   return (
     <TemplateManagerClient
@@ -38,3 +58,4 @@ export default async function AdminTemplatesPage() {
     />
   );
 }
+

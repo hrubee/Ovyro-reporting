@@ -1,6 +1,16 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
+import { userHasPermission } from "@/lib/permissions";
+
+function safeJson(val: any, fallback: any = {}) {
+  if (typeof val !== "string") return val ?? fallback;
+  try {
+    return JSON.parse(val);
+  } catch {
+    return fallback;
+  }
+}
 
 export async function GET(
   req: NextRequest,
@@ -11,7 +21,7 @@ export async function GET(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const user = session.user as { organizationId: string };
+  const user = session.user as { organizationId: string; role: string; permissions?: string[] };
   const { id } = await params;
 
   try {
@@ -28,7 +38,12 @@ export async function GET(
       return NextResponse.json({ error: "Template not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ template });
+    return NextResponse.json({
+      template: {
+        ...template,
+        schema: safeJson(template.schema, {}),
+      },
+    });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || "Server error" }, { status: 500 });
   }
@@ -43,9 +58,15 @@ export async function PUT(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const user = session.user as { organizationId: string; role: string };
-  if (user.role !== "ORG_ADMIN" && user.role !== "SUPER_ADMIN") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const user = session.user as { organizationId: string; role: string; permissions?: string[] };
+  const canManage =
+    user.role === "ORG_ADMIN" ||
+    user.role === "SUPER_ADMIN" ||
+    user.role === "ADMIN" ||
+    userHasPermission(user.permissions, "manage_templates", user.role);
+
+  if (!canManage) {
+    return NextResponse.json({ error: "Forbidden: Manage templates permission required" }, { status: 403 });
   }
 
   const { id } = await params;
@@ -62,6 +83,13 @@ export async function PUT(
 
     const { title, icon, description, frequency, category, schema, outletIds } = body;
 
+    const schemaString =
+      schema !== undefined
+        ? typeof schema === "string"
+          ? schema
+          : JSON.stringify(schema)
+        : existing.schema;
+
     const updated = await prisma.formTemplate.update({
       where: { id },
       data: {
@@ -70,7 +98,7 @@ export async function PUT(
         description: description !== undefined ? description : existing.description,
         frequency: frequency || existing.frequency,
         category: category || existing.category,
-        schema: schema !== undefined ? schema : existing.schema,
+        schema: schemaString,
         version: { increment: 1 },
       },
     });
@@ -89,8 +117,15 @@ export async function PUT(
       }
     }
 
-    return NextResponse.json({ success: true, template: updated });
+    return NextResponse.json({
+      success: true,
+      template: {
+        ...updated,
+        schema: safeJson(updated.schema, {}),
+      },
+    });
   } catch (err: any) {
+    console.error("Update template error:", err);
     return NextResponse.json({ error: err.message || "Failed to update template" }, { status: 500 });
   }
 }
@@ -104,15 +139,20 @@ export async function DELETE(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const user = session.user as { organizationId: string; role: string };
-  if (user.role !== "ORG_ADMIN" && user.role !== "SUPER_ADMIN") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const user = session.user as { organizationId: string; role: string; permissions?: string[] };
+  const canManage =
+    user.role === "ORG_ADMIN" ||
+    user.role === "SUPER_ADMIN" ||
+    user.role === "ADMIN" ||
+    userHasPermission(user.permissions, "manage_templates", user.role);
+
+  if (!canManage) {
+    return NextResponse.json({ error: "Forbidden: Manage templates permission required" }, { status: 403 });
   }
 
   const { id } = await params;
 
   try {
-    // Soft delete / archive to protect audit history
     await prisma.formTemplate.updateMany({
       where: { id, organizationId: user.organizationId },
       data: { isArchived: true },
