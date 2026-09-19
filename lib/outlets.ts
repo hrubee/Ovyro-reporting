@@ -106,7 +106,7 @@ export const ORETA_HYGIENE_AREAS: OretaAreaDefinition[] = [
   { id: 5, area: "MEZZANINE FLOOR", assignedStaff: ["Mangla", "Bharti"], defaultStaff: "Mangla" },
 ];
 
-// ─── 2. Oreta Equipment Cleaning (38 items) ──────────────────────────────────
+// ─── 2. Oreta Equipment Cleaning (41 items) ──────────────────────────────────
 export const ORETA_EQUIPMENT_ITEMS = [
   // Kitchen & Cooking
   { id: 1, name: "Oven", category: "Kitchen & Cooking", defaultCleanedBy: "Rameshwar" },
@@ -128,29 +128,32 @@ export const ORETA_EQUIPMENT_ITEMS = [
   { id: 16, name: "Coffee machine 2", category: "Beverage & Refrigeration", defaultCleanedBy: "Arzaaan" },
   { id: 17, name: "Fridge 1", category: "Beverage & Refrigeration", defaultCleanedBy: "Rameshwar" },
   { id: 18, name: "Fridge 2", category: "Beverage & Refrigeration", defaultCleanedBy: "Rameshwar" },
-  { id: 19, name: "Freezer 1", category: "Beverage & Refrigeration", defaultCleanedBy: "Rameshwar" },
+  { id: 19, name: "Fridge Top", category: "Beverage & Refrigeration", defaultCleanedBy: "Rameshwar" },
+  { id: 20, name: "Freezer 1", category: "Beverage & Refrigeration", defaultCleanedBy: "Rameshwar" },
   // Containers & Prep
-  { id: 20, name: "Food containers", category: "Containers & Prep", defaultCleanedBy: "Bharti" },
-  { id: 21, name: "Sauce containers", category: "Containers & Prep", defaultCleanedBy: "Bharti" },
-  { id: 22, name: "Spice containers", category: "Containers & Prep", defaultCleanedBy: "Bharti" },
-  { id: 23, name: "Weighing Scale 1", category: "Containers & Prep", defaultCleanedBy: "Arzaaan" },
-  { id: 24, name: "Weighing Scale 2", category: "Containers & Prep", defaultCleanedBy: "Arzaaan" },
-  { id: 25, name: "Wet and Dry Dustbins", category: "Containers & Prep", defaultCleanedBy: "Mangla" },
+  { id: 21, name: "Food containers", category: "Containers & Prep", defaultCleanedBy: "Bharti" },
+  { id: 22, name: "Sauce containers", category: "Containers & Prep", defaultCleanedBy: "Bharti" },
+  { id: 23, name: "Spice containers", category: "Containers & Prep", defaultCleanedBy: "Bharti" },
+  { id: 24, name: "Weighing Scale 1", category: "Containers & Prep", defaultCleanedBy: "Arzaaan" },
+  { id: 25, name: "Weighing Scale 2", category: "Containers & Prep", defaultCleanedBy: "Arzaaan" },
+  { id: 26, name: "Wet and Dry Dustbins", category: "Containers & Prep", defaultCleanedBy: "Mangla" },
   // Display & Retail
-  { id: 26, name: "Cake counter 1", category: "Display & Retail", defaultCleanedBy: "Arzaaan" },
-  { id: 27, name: "Cake counter 2", category: "Display & Retail", defaultCleanedBy: "Arzaaan" },
-  { id: 28, name: "Ice cream counter", category: "Display & Retail", defaultCleanedBy: "Arzaaan" },
-  { id: 29, name: "Food rack", category: "Display & Retail", defaultCleanedBy: "Arzaaan" },
-  { id: 30, name: "Store rack", category: "Display & Retail", defaultCleanedBy: "Arzaaan" },
-  { id: 31, name: "Store room", category: "Display & Retail", defaultCleanedBy: "Arzaaan" },
-  { id: 32, name: "Cabinet cleaning", category: "Display & Retail", defaultCleanedBy: "Mangla" },
-  { id: 33, name: "Cash Counter", category: "Display & Retail", defaultCleanedBy: "Arzaaan" },
-  { id: 34, name: "Gods Altar", category: "Display & Retail", defaultCleanedBy: "Bharti" },
+  { id: 27, name: "Cake counter 1", category: "Display & Retail", defaultCleanedBy: "Arzaaan" },
+  { id: 28, name: "Cake counter 2", category: "Display & Retail", defaultCleanedBy: "Arzaaan" },
+  { id: 29, name: "Ice cream counter", category: "Display & Retail", defaultCleanedBy: "Arzaaan" },
+  { id: 30, name: "Food rack", category: "Display & Retail", defaultCleanedBy: "Arzaaan" },
+  { id: 31, name: "Food Rack Top", category: "Display & Retail", defaultCleanedBy: "Arzaaan" },
+  { id: 32, name: "Store rack", category: "Display & Retail", defaultCleanedBy: "Arzaaan" },
+  { id: 33, name: "Store room", category: "Display & Retail", defaultCleanedBy: "Arzaaan" },
+  { id: 34, name: "Cabinet cleaning", category: "Display & Retail", defaultCleanedBy: "Mangla" },
+  { id: 35, name: "Cash Counter", category: "Display & Retail", defaultCleanedBy: "Arzaaan" },
+  { id: 36, name: "Gods Altar", category: "Display & Retail", defaultCleanedBy: "Bharti" },
   // Facility & Outdoor
-  { id: 35, name: "Pest control", category: "Facility & Environment", defaultCleanedBy: "Mangla" },
-  { id: 36, name: "Outdoor sitting area", category: "Facility & Environment", defaultCleanedBy: "Mangla" },
-  { id: 37, name: "Web Cleaning", category: "Facility & Environment", defaultCleanedBy: "Mangla" },
-  { id: 38, name: "Signage board", category: "Facility & Environment", defaultCleanedBy: "Mangla" },
+  { id: 37, name: "Pest control", category: "Facility & Environment", defaultCleanedBy: "Mangla" },
+  { id: 38, name: "Pest - Flies Machine", category: "Facility & Environment", defaultCleanedBy: "Mangla" },
+  { id: 39, name: "Outdoor sitting area", category: "Facility & Environment", defaultCleanedBy: "Mangla" },
+  { id: 40, name: "Web Cleaning", category: "Facility & Environment", defaultCleanedBy: "Mangla" },
+  { id: 41, name: "Signage board", category: "Facility & Environment", defaultCleanedBy: "Mangla" },
 ];
 
 // ─── 3. Oreta Fridge & Temperature Units ──────────────────────────────────────

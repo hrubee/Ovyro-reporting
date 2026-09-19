@@ -90,10 +90,10 @@ export default function OretaEquipmentForm({
         const normalized = ORETA_EQUIPMENT_ITEMS.map((itemDef) => {
           const matched = parsed.find(
             (p: any) =>
-              (p.equipment && p.equipment.toLowerCase() === itemDef.name.toLowerCase()) ||
-              (p.name && p.name.toLowerCase() === itemDef.name.toLowerCase()) ||
+              (p.equipment && p.equipment.trim().toLowerCase() === itemDef.name.trim().toLowerCase()) ||
+              (p.name && p.name.trim().toLowerCase() === itemDef.name.trim().toLowerCase()) ||
               (itemDef.name === "Iced tea machine" && (p.equipment === "Iced machine" || p.name === "Iced machine" || p.equipment === "Ice tea machine" || p.name === "Ice tea machine")) ||
-              p.id === itemDef.id
+              (itemDef.name === "Food rack" && (p.equipment === "Food racks" || p.name === "Food racks"))
           );
           return {
             id: itemDef.id,
