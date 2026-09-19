@@ -1832,24 +1832,282 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   .input-field,
   .form-control {
     font-size: 16px !important; /* Prevents auto-zoom in Safari iOS */
-    min-height: 42px;
+    min-height: 44px;
   }
 
   .btn {
-    min-height: 40px;
+    min-height: 44px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
   }
 
   .btn-sm {
-    min-height: 36px;
+    min-height: 38px;
     padding: 0.4rem 0.75rem;
   }
 
   .btn-xs {
     min-height: 32px;
     padding: 0.25rem 0.5rem;
+  }
+
+  /* Dynamic Sheet & Audit Header Mobile Layout */
+  .dynamic-sheet-container {
+    padding: 1rem 0.75rem 6.5rem 0.75rem;
+  }
+
+  .sheet-header-card {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+    padding: 1rem;
+  }
+
+  .sheet-header-left {
+    width: 100%;
+    gap: 0.85rem;
+  }
+
+  .sheet-icon-wrapper {
+    width: 48px;
+    height: 48px;
+    font-size: 1.4rem;
+    flex-shrink: 0;
+  }
+
+  .sheet-title {
+    font-size: 1.25rem;
+  }
+
+  .sheet-header-right {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .score-pill-box {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    background: #f8fafc;
+    padding: 0.6rem 0.85rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+  }
+
+  .score-value {
+    font-size: 1.35rem;
+  }
+
+  .controls-box {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .control-item {
+    width: 100%;
+  }
+
+  .control-input, .control-select {
+    width: 100%;
+    font-size: 16px !important;
+    min-height: 44px;
+  }
+
+  .date-touch-group {
+    width: 100%;
+  }
+
+  .date-quick-pills {
+    width: 100%;
+  }
+
+  .pill-btn {
+    flex: 1;
+    text-align: center;
+    padding: 0.4rem;
+    font-size: 0.8rem;
+    min-height: 36px;
+  }
+
+  .table-header-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+    padding: 0.85rem;
+  }
+
+  .quick-action-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    width: 100%;
+  }
+
+  .quick-action-label {
+    width: 100%;
+    margin-bottom: 0.2rem;
+  }
+
+  .quick-btn-action {
+    flex: 1 1 30%;
+    min-height: 42px;
+    font-size: 0.8rem;
+    justify-content: center;
+    padding: 0.4rem 0.5rem;
+  }
+
+  /* Mobile Card-Based Transformation for Audit Table Rows */
+  .audit-table {
+    display: block;
+    width: 100%;
+  }
+
+  .audit-table thead {
+    display: none;
+  }
+
+  .audit-table tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    width: 100%;
+  }
+
+  .audit-table tbody tr {
+    display: flex;
+    flex-direction: column;
+    background: #ffffff;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 0.85rem;
+    gap: 0.65rem;
+    box-shadow: 0 2px 8px rgba(44, 30, 20, 0.04);
+  }
+
+  .audit-table tbody tr td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0;
+    border-bottom: none;
+    width: 100%;
+  }
+
+  .audit-table tbody tr td:first-child {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    padding-bottom: 0.45rem;
+    border-bottom: 1px solid #ede7df;
+    margin-bottom: 0.15rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .audit-table td select,
+  .audit-table td input {
+    width: 100% !important;
+    max-width: 100% !important;
+    font-size: 16px !important;
+    min-height: 44px;
+    border-radius: 8px;
+  }
+
+  .touch-btn-toggle {
+    width: 100%;
+    display: flex;
+    border-radius: 8px;
+  }
+
+  .touch-btn-option {
+    flex: 1;
+    min-height: 44px;
+    font-size: 0.85rem;
+    font-weight: 700;
+  }
+
+  .temp-touch-box {
+    width: 100%;
+    display: flex;
+    gap: 0.35rem;
+  }
+
+  .touch-temp-select {
+    width: 100% !important;
+    font-size: 16px !important;
+    min-height: 44px;
+    border-radius: 8px;
+  }
+
+  .na-toggle-btn {
+    min-height: 44px;
+    padding: 0 0.85rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .audit-footer-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .sticky-action-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 850;
+    background: rgba(255, 255, 255, 0.97);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-top: 1px solid #e6dfd5;
+    padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom, 0px));
+    box-shadow: 0 -4px 20px rgba(44, 30, 20, 0.08);
+  }
+
+  .action-bar-inner {
+    flex-direction: column;
+    gap: 0.5rem;
+    width: 100%;
+  }
+
+  .btn-primary-save {
+    width: 100%;
+    min-height: 48px;
+    font-size: 1rem;
+    font-weight: 700;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Admin Cards & Grids on Mobile */
+  .template-cards-grid,
+  .outlets-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .filter-controls-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .filter-controls-row select,
+  .filter-controls-row input {
+    width: 100%;
+    font-size: 16px !important;
+    min-height: 44px;
   }
 }
 

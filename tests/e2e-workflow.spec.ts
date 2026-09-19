@@ -123,6 +123,48 @@ test.describe('Reporting SaaS End-to-End Workflow', () => {
     await expect(page.locator('.admin-page-title')).toContainText(/Audit Reports/i);
     await expect(page.locator('button:has-text("Export to CSV")')).toBeVisible();
   });
+
+  test('Mobile Responsive UX: works seamlessly on mobile viewports (390x844)', async ({ page }) => {
+    // Set mobile viewport (e.g. iPhone 14 / Pixel)
+    await page.setViewportSize({ width: 390, height: 844 });
+
+    // 1. Visit Login on Mobile
+    await page.goto('/login');
+    await page.fill('input[type="email"]', 'admin@reporting.app');
+    await page.fill('input[type="password"]', 'Admin@123');
+    await page.click('button[type="submit"]');
+
+    // 2. Verify Mobile Topbar
+    await page.waitForURL('**/dashboard');
+    await expect(page.locator('.mobile-topbar')).toBeVisible();
+
+    // 3. Test Mobile Navigation Drawer
+    await page.click('.mobile-hamburger-btn');
+    await expect(page.locator('.sidebar.open')).toBeVisible();
+    await expect(page.locator('.sidebar-backdrop')).toBeVisible();
+
+    // Close drawer via close button
+    await page.click('.sidebar-close-btn');
+    await expect(page.locator('.sidebar')).not.toHaveClass(/open/);
+
+    // 4. Open an audit sheet on mobile
+    const firstChecklistLink = page.locator('.checklist-card').first();
+    if (await firstChecklistLink.isVisible()) {
+      await firstChecklistLink.click();
+      await expect(page.locator('.dynamic-sheet-page')).toBeVisible();
+
+      // Verify sticky save bar is visible at bottom
+      await expect(page.locator('.sticky-action-bar')).toBeVisible();
+      await expect(page.locator('button.btn-primary-save')).toBeVisible();
+
+      // Test mobile touch batch action
+      const allYesBtn = page.locator('button.quick-btn-action.yes').first();
+      if (await allYesBtn.isVisible()) {
+        await allYesBtn.click();
+        await expect(page.locator('.touch-btn-option.active-yes').first()).toBeVisible();
+      }
+    }
+  });
 });
 
 
