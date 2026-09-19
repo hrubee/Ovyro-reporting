@@ -103,6 +103,19 @@ test.describe('Reporting SaaS End-to-End Workflow', () => {
         await singleYesBtn.click();
         await expect(singleYesBtn).toHaveClass(/active-yes/);
       }
+      // Test Touch Time Select if available
+      const timeSelect = page.locator('select.touch-time-select').first();
+      if (await timeSelect.isVisible()) {
+        await timeSelect.selectOption('10:00');
+        await expect(timeSelect).toHaveValue('10:00');
+      }
+
+      // Test Date Quick Pills
+      const todayPill = page.locator('.date-quick-pills button:has-text("Today")');
+      if (await todayPill.isVisible()) {
+        await todayPill.click();
+        await expect(todayPill).toHaveClass(/active/);
+      }
     }
 
     // 7. Test Reports Hub (/admin/reports)

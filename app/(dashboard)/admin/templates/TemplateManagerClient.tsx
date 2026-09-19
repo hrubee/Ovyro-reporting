@@ -966,12 +966,9 @@ export default function TemplateManagerClient({
                                 )}
                                 <td>
                                   {category === "TEMPERATURE" ? (
-                                    <input
-                                      type="text"
-                                      disabled
-                                      placeholder="e.g. 4.2°C"
-                                      className="mock-input"
-                                    />
+                                    <select disabled className="mock-input" style={{ width: "100%", padding: "0.35rem 0.5rem", borderRadius: "4px" }}>
+                                      <option>{it.targetMinTemp !== undefined ? `${((it.targetMinTemp + (it.targetMaxTemp ?? 8)) / 2).toFixed(1)}°C (Optimal)` : "4.0°C (Safe)"}</option>
+                                    </select>
                                   ) : (
                                     <div className="touch-btn-toggle" style={{ opacity: 0.9 }}>
                                       <button type="button" className="touch-btn-option active-yes" style={{ padding: "0.2rem 0.45rem", fontSize: "0.7rem" }}>

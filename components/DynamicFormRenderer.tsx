@@ -131,6 +131,107 @@ export default function DynamicFormRenderer({
     };
   }, [outlet.id, template.id, template.category, template.frequency, parsedSchema, selectedDate, selectedShift, availableStaff, currentUser?.name]);
 
+const TIME_OPTIONS = [
+  "06:00", "06:30", "07:00", "07:30", "08:00", "08:30", "09:00", "09:30",
+  "10:00", "10:30", "11:00", "11:30", "12:00", "12:30", "13:00", "13:30",
+  "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30",
+  "18:00", "18:30", "19:00", "19:30", "20:00", "20:30", "21:00", "21:30",
+  "22:00", "22:30", "23:00", "23:30"
+];
+
+function formatTimeSlot(timeStr: string) {
+  if (!timeStr) return "09:00 AM";
+  const parts = timeStr.split(":");
+  if (parts.length < 2) return timeStr;
+  const h = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10);
+  if (isNaN(h)) return timeStr;
+  const ampm = h >= 12 ? "PM" : "AM";
+  const hour12 = h % 12 || 12;
+  const minStr = m < 10 ? `0${m}` : `${m}`;
+  return `${hour12}:${minStr} ${ampm}`;
+}
+
+function TouchTempSelect({
+  value,
+  min,
+  max,
+  onChange,
+}: {
+  value?: string;
+  min: number;
+  max: number;
+  onChange: (val: string) => void;
+}) {
+  const numVal = parseFloat(value || "");
+  const isBreach = !isNaN(numVal) && (numVal < min || numVal > max);
+  const isSelected = value !== undefined && value !== "";
+
+  return (
+    <div className="temp-touch-box">
+      <select
+        value={value || ""}
+        onChange={(e) => onChange(e.target.value)}
+        className={`touch-temp-select ${
+          isBreach ? "temp-out-of-bounds" : isSelected && value !== "N/A" ? "temp-in-bounds" : ""
+        }`}
+      >
+        <option value="">Select Temp (°C)...</option>
+        <option value="N/A">— N/A (Unit Off / Empty)</option>
+
+        <optgroup label="Deep Freezer Range (-25°C to -10°C)">
+          {[
+            "-25.0", "-24.0", "-23.0", "-22.0", "-21.0", "-20.0", "-19.0", "-18.0",
+            "-17.0", "-16.0", "-15.0", "-14.0", "-13.0", "-12.0", "-11.0", "-10.0"
+          ].map((t) => (
+            <option key={t} value={t}>
+              {t}°C {parseFloat(t) >= min && parseFloat(t) <= max ? "✓ (Safe)" : "⚠️"}
+            </option>
+          ))}
+        </optgroup>
+
+        <optgroup label="Chill / Cold Hold (-9°C to 0°C)">
+          {["-9.0", "-8.0", "-7.0", "-6.0", "-5.0", "-4.0", "-3.0", "-2.0", "-1.0", "0.0"].map((t) => (
+            <option key={t} value={t}>
+              {t}°C {parseFloat(t) >= min && parseFloat(t) <= max ? "✓ (Safe)" : "⚠️"}
+            </option>
+          ))}
+        </optgroup>
+
+        <optgroup label="Standard Refrigerator (+0.5°C to +8.0°C)">
+          {[
+            "0.5", "1.0", "1.5", "2.0", "2.5", "3.0", "3.5", "4.0",
+            "4.5", "5.0", "5.5", "6.0", "6.5", "7.0", "7.5", "8.0"
+          ].map((t) => (
+            <option key={t} value={t}>
+              {t}°C {parseFloat(t) >= min && parseFloat(t) <= max ? "✓ (Safe)" : "⚠️"}
+            </option>
+          ))}
+        </optgroup>
+
+        <optgroup label="Display / Ambient (+8.5°C to +30.0°C)">
+          {[
+            "8.5", "9.0", "9.5", "10.0", "11.0", "12.0", "13.0", "14.0",
+            "15.0", "16.0", "18.0", "20.0", "22.0", "25.0", "30.0"
+          ].map((t) => (
+            <option key={t} value={t}>
+              {t}°C {parseFloat(t) >= min && parseFloat(t) <= max ? "✓ (Safe)" : "⚠️"}
+            </option>
+          ))}
+        </optgroup>
+      </select>
+      <button
+        type="button"
+        className={`na-toggle-btn ${value === "N/A" ? "active" : ""}`}
+        onClick={() => onChange(value === "N/A" ? "" : "N/A")}
+        title="Quick N/A Toggle"
+      >
+        N/A
+      </button>
+    </div>
+  );
+}
+
 function YesNoNaToggle({
   value,
   onChange,
@@ -193,7 +294,7 @@ function getInitialDataForSchema(
         name: item.name || item.task || "Housekeeping Zone",
         status: "YES",
         cleanedBy: item.defaultAssignee || defaultStaff,
-        time: new Date().toTimeString().slice(0, 5),
+        time: item.defaultTime || "09:00",
       }))
     );
     if (!items.length) {
@@ -213,7 +314,7 @@ function getInitialDataForSchema(
         cleanedBy: item.defaultAssignee || defaultStaff,
         checkedBy: currentUserName || "Supervisor",
         status: "YES",
-        time: new Date().toTimeString().slice(0, 5),
+        time: item.defaultTime || "09:00",
       }))
     );
     if (!completedItems.length) {
@@ -225,20 +326,25 @@ function getInitialDataForSchema(
     return { completedItems };
   } else if (category === "TEMPERATURE") {
     let readings = sections.flatMap((s: any) =>
-      (s.items || []).map((item: any) => ({
-        id: item.id || `temp-${Math.random()}`,
-        name: item.name || "Refrigeration Unit",
-        machineNumber: item.machineNumber || "",
-        referenceTemp: item.referenceTemp || "+2°C to +8°C",
-        morningTemp: "",
-        eveningTemp: "",
-        status: "NORMAL",
-      }))
+      (s.items || []).map((item: any) => {
+        const min = item.targetMinTemp ?? 2;
+        const max = item.targetMaxTemp ?? 8;
+        const safeMid = ((min + max) / 2).toFixed(1);
+        return {
+          id: item.id || `temp-${Math.random()}`,
+          name: item.name || "Refrigeration Unit",
+          machineNumber: item.machineNumber || "",
+          referenceTemp: item.referenceTemp || `${min}°C to ${max}°C`,
+          morningTemp: safeMid,
+          eveningTemp: safeMid,
+          status: "NORMAL",
+        };
+      })
     );
     if (!readings.length) {
       readings = [
-        { id: "temp-1", name: "Walk-in Meat Chiller", machineNumber: "1", referenceTemp: "+2°C to +4°C", morningTemp: "3.2", eveningTemp: "3.5", status: "NORMAL" },
-        { id: "temp-2", name: "Dairy & Produce Cooler", machineNumber: "2", referenceTemp: "+2°C to +6°C", morningTemp: "4.1", eveningTemp: "4.3", status: "NORMAL" },
+        { id: "temp-1", name: "Walk-in Meat Chiller", machineNumber: "1", referenceTemp: "+2°C to +4°C", morningTemp: "3.0", eveningTemp: "3.0", status: "NORMAL" },
+        { id: "temp-2", name: "Dairy & Produce Cooler", machineNumber: "2", referenceTemp: "+2°C to +6°C", morningTemp: "4.0", eveningTemp: "4.0", status: "NORMAL" },
       ];
     }
     return { readings };
@@ -264,22 +370,21 @@ function getInitialDataForSchema(
         id: item.id || `maint-${Math.random()}`,
         task: item.name || item.task || "Maintenance Task",
         category: item.category || s.title || "Facility",
-        completedBy: item.defaultAssignee || "Technician",
+        completedBy: item.defaultAssignee || defaultStaff,
         status: "YES",
         notes: "",
       }))
     );
     if (!tasks.length) {
       tasks = [
-        { id: "maint-1", task: "AC Filter Cleaning & Air Flow Check", category: "HVAC", completedBy: "Technician", status: "YES", notes: "" },
-        { id: "maint-2", task: "Exhaust Hood Grease Filter Inspection", category: "Ventilation", completedBy: "Technician", status: "YES", notes: "" },
+        { id: "maint-1", task: "AC Filter Cleaning & Air Flow Check", category: "HVAC", completedBy: defaultStaff, status: "YES", notes: "" },
+        { id: "maint-2", task: "Exhaust Hood Grease Filter Inspection", category: "Ventilation", completedBy: defaultStaff, status: "YES", notes: "" },
       ];
     }
     return { tasks };
   }
   return {};
 }
-
 
   // Calculate Compliance Score
   const complianceScore = useMemo(() => {
@@ -339,6 +444,12 @@ function getInitialDataForSchema(
     if (scoredTotal === 0) return 100;
     return Math.round((yesCount / scoredTotal) * 100);
   }, [formData, template.category]);
+
+  const yesterdayStr = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return d.toISOString().split("T")[0];
+  }, []);
 
   const handleSave = async () => {
     setSaving(true);
@@ -416,12 +527,30 @@ function getInitialDataForSchema(
           <div className="controls-box">
             <div className="control-item">
               <label>Audit Date</label>
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="control-input"
-              />
+              <div className="date-touch-group">
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="control-input"
+                />
+                <div className="date-quick-pills">
+                  <button
+                    type="button"
+                    className={`pill-btn ${selectedDate === todayStr ? "active" : ""}`}
+                    onClick={() => setSelectedDate(todayStr)}
+                  >
+                    Today
+                  </button>
+                  <button
+                    type="button"
+                    className={`pill-btn ${selectedDate === yesterdayStr ? "active" : ""}`}
+                    onClick={() => setSelectedDate(yesterdayStr)}
+                  >
+                    Yesterday
+                  </button>
+                </div>
+              </div>
             </div>
 
             {template.frequency === "SHIFT_WISE" && (
@@ -545,16 +674,21 @@ function getInitialDataForSchema(
                           </select>
                         </td>
                         <td>
-                          <input
-                            type="time"
+                          <select
                             value={item.time || "09:00"}
                             onChange={(e) => {
                               const newItems = [...(formData.items || [])];
                               newItems[idx] = { ...item, time: e.target.value };
                               setFormData({ ...formData, items: newItems });
                             }}
-                            className="table-time-input"
-                          />
+                            className="table-select touch-time-select"
+                          >
+                            {TIME_OPTIONS.map((t) => (
+                              <option key={t} value={t}>
+                                {formatTimeSlot(t)}
+                              </option>
+                            ))}
+                          </select>
                         </td>
                         <td style={{ textAlign: "center" }}>
                           <YesNoNaToggle
@@ -702,6 +836,45 @@ function getInitialDataForSchema(
                   <h3>Cold Storage & Display Temperature Monitoring</h3>
                   <span className="temp-spec-hint">Units: °C (Auto-validates against safe food tolerances)</span>
                 </div>
+                <div className="quick-action-bar">
+                  <span className="quick-action-label">Batch Actions:</span>
+                  <button
+                    type="button"
+                    className="quick-btn-action yes"
+                    onClick={() => {
+                      const updated = (formData.readings || []).map((reading: any) => {
+                        const schemaItem = sections
+                          .flatMap((s: any) => s.items || [])
+                          .find((i: any) => i.id === reading.id || i.name === reading.name);
+                        const min = schemaItem?.targetMinTemp ?? 2;
+                        const max = schemaItem?.targetMaxTemp ?? 8;
+                        const safeMid = ((min + max) / 2).toFixed(1);
+                        return {
+                          ...reading,
+                          morningTemp: safeMid,
+                          eveningTemp: safeMid,
+                        };
+                      });
+                      setFormData({ ...formData, readings: updated });
+                    }}
+                  >
+                    ✓ Set All In-Spec Safe
+                  </button>
+                  <button
+                    type="button"
+                    className="quick-btn-action na"
+                    onClick={() => {
+                      const updated = (formData.readings || []).map((reading: any) => ({
+                        ...reading,
+                        morningTemp: "N/A",
+                        eveningTemp: "N/A",
+                      }));
+                      setFormData({ ...formData, readings: updated });
+                    }}
+                  >
+                    — Set All N/A
+                  </button>
+                </div>
               </div>
               <div className="table-responsive">
                 <table className="audit-table">
@@ -741,33 +914,27 @@ function getInitialDataForSchema(
                             </span>
                           </td>
                           <td>
-                            <input
-                              type="text"
-                              placeholder="e.g. 4.2"
-                              value={reading.morningTemp || ""}
-                              onChange={(e) => {
+                            <TouchTempSelect
+                              value={reading.morningTemp}
+                              min={min}
+                              max={max}
+                              onChange={(val) => {
                                 const newReadings = [...(formData.readings || [])];
-                                newReadings[idx] = { ...reading, morningTemp: e.target.value };
+                                newReadings[idx] = { ...reading, morningTemp: val };
                                 setFormData({ ...formData, readings: newReadings });
                               }}
-                              className={`table-temp-input ${
-                                !isNaN(mNum) && (mNum < min || mNum > max) ? "temp-out-of-bounds" : ""
-                              }`}
                             />
                           </td>
                           <td>
-                            <input
-                              type="text"
-                              placeholder="e.g. 4.5"
-                              value={reading.eveningTemp || ""}
-                              onChange={(e) => {
+                            <TouchTempSelect
+                              value={reading.eveningTemp}
+                              min={min}
+                              max={max}
+                              onChange={(val) => {
                                 const newReadings = [...(formData.readings || [])];
-                                newReadings[idx] = { ...reading, eveningTemp: e.target.value };
+                                newReadings[idx] = { ...reading, eveningTemp: val };
                                 setFormData({ ...formData, readings: newReadings });
                               }}
-                              className={`table-temp-input ${
-                                !isNaN(eNum) && (eNum < min || eNum > max) ? "temp-out-of-bounds" : ""
-                              }`}
                             />
                           </td>
                           <td>
@@ -954,17 +1121,21 @@ function getInitialDataForSchema(
                           <span className="category-pill">{task.category}</span>
                         </td>
                         <td>
-                          <input
-                            type="text"
+                          <select
                             value={task.completedBy || ""}
                             onChange={(e) => {
                               const newTasks = [...(formData.tasks || [])];
                               newTasks[idx] = { ...task, completedBy: e.target.value };
                               setFormData({ ...formData, tasks: newTasks });
                             }}
-                            className="table-text-input"
-                            placeholder="Technician / Staff name"
-                          />
+                            className="table-select"
+                          >
+                            {availableStaff.map((staff) => (
+                              <option key={staff} value={staff}>
+                                {staff}
+                              </option>
+                            ))}
+                          </select>
                         </td>
                         <td style={{ textAlign: "center" }}>
                           <YesNoNaToggle
@@ -1013,13 +1184,20 @@ function getInitialDataForSchema(
               <div className="supervisor-inputs">
                 <div className="form-group">
                   <label>Supervisor Name</label>
-                  <input
-                    type="text"
+                  <select
                     value={supervisorName || currentUser.name}
                     onChange={(e) => setSupervisorName(e.target.value)}
-                    className="control-input"
-                    placeholder="Supervisor Name"
-                  />
+                    className="control-select"
+                  >
+                    <option value={currentUser.name}>{currentUser.name} (Current User)</option>
+                    {availableStaff
+                      .filter((st) => st !== currentUser.name)
+                      .map((staff) => (
+                        <option key={staff} value={staff}>
+                          {staff}
+                        </option>
+                      ))}
+                  </select>
                 </div>
 
                 <div className="signoff-toggle-row">

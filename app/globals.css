@@ -666,9 +666,9 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 }
 
 .touch-btn-option {
-  padding: 0.35rem 0.6rem;
-  font-size: 0.75rem;
-  font-weight: 600;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 700;
   border: none;
   background: transparent;
   color: var(--text-secondary);
@@ -698,33 +698,112 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 }
 
 .temp-touch-box {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.4rem;
+  width: 100%;
 }
 
-.temp-touch-box select {
-  padding: 0.35rem 0.5rem !important;
-  font-size: 0.8rem !important;
-  min-width: 90px;
+.touch-temp-select {
+  flex: 1;
+  padding: 0.5rem 0.65rem !important;
+  font-size: 0.85rem !important;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: white;
+  color: var(--text-primary);
+  cursor: pointer;
+  outline: none;
+  transition: all var(--transition);
+  min-width: 140px;
+}
+
+.touch-temp-select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(194, 93, 44, 0.15);
+}
+
+.touch-temp-select.temp-out-of-bounds {
+  border-color: #ef4444;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-weight: 700;
+}
+
+.touch-temp-select.temp-in-bounds {
+  border-color: #22c55e;
+  background: #f0fdf4;
+  color: #15803d;
+}
+
+.touch-time-select {
+  padding: 0.45rem 0.65rem !important;
+  font-size: 0.85rem !important;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: white;
+  color: var(--text-primary);
+  cursor: pointer;
+  min-width: 120px;
 }
 
 .na-toggle-btn {
-  padding: 0.3rem 0.55rem;
-  border-radius: 4px;
-  font-size: 0.7rem;
+  padding: 0.45rem 0.65rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
   font-weight: 700;
-  border: 1px solid #d6cdc1;
-  background: #ffffff;
+  border: 1px solid var(--border);
+  background: #f8fafc;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition);
+  white-space: nowrap;
+}
+
+.na-toggle-btn:hover {
+  background: #f1f5f9;
+}
+
+.na-toggle-btn.active,
+.na-toggle-btn.is-na {
+  background: #64748b;
+  color: white;
+  border-color: #64748b;
+}
+
+.date-touch-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.date-quick-pills {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.pill-btn {
+  padding: 0.2rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  border-radius: 9999px;
+  border: 1px solid var(--border);
+  background: white;
   color: var(--text-secondary);
   cursor: pointer;
   transition: all var(--transition);
 }
 
-.na-toggle-btn.is-na {
-  background: #64748b;
+.pill-btn:hover {
+  background: #f1f5f9;
+}
+
+.pill-btn.active {
+  background: var(--primary);
   color: white;
-  border-color: #64748b;
+  border-color: var(--primary);
 }
 
 .row-na {
