@@ -3871,57 +3871,70 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: var(--radius-md);
-  padding: 0.9rem;
+  padding: 0.85rem;
+  box-sizing: border-box;
+  width: 100%;
+  overflow-x: hidden;
 }
 
 .builder-section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 0.75rem;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.65rem;
+  width: 100%;
 }
 
 .section-title-input-wrap {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  flex: 1;
+  gap: 0.4rem;
+  flex: 1 1 180px;
+  min-width: 0;
 }
 
 .sec-number {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 700;
   color: #475569;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .section-title-input {
   flex: 1;
-  font-size: 0.85rem;
+  min-width: 0;
+  width: 100%;
+  font-size: 0.82rem;
   font-weight: 600;
-  padding: 0.4rem 0.65rem;
+  padding: 0.35rem 0.55rem;
   border: 1px solid #cbd5e1;
   border-radius: var(--radius-sm);
   background: white;
+  box-sizing: border-box;
 }
 
 .section-actions {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.35rem;
+  flex-shrink: 0;
 }
 
 .btn-add-item-small {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 600;
   background: #f0fdf4;
   color: #15803d;
   border: 1px solid #bbf7d0;
-  padding: 0.3rem 0.65rem;
+  padding: 0.3rem 0.55rem;
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: var(--transition);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .btn-add-item-small:hover {
@@ -3933,8 +3946,9 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   border: none;
   cursor: pointer;
   font-size: 0.9rem;
-  padding: 0.25rem 0.4rem;
+  padding: 0.2rem 0.35rem;
   opacity: 0.7;
+  flex-shrink: 0;
 }
 
 .btn-delete-section:hover {
@@ -3944,72 +3958,91 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 .builder-items-list {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.45rem;
+  width: 100%;
 }
 
 .builder-item-row {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.4rem;
   background: white;
-  padding: 0.4rem 0.6rem;
+  padding: 0.4rem 0.5rem;
   border: 1px solid #e2e8f0;
   border-radius: var(--radius-sm);
+  width: 100%;
+  box-sizing: border-box;
+  flex-wrap: wrap;
 }
 
 .item-index {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 700;
   color: #94a3b8;
-  width: 18px;
+  width: 16px;
   text-align: center;
+  flex-shrink: 0;
 }
 
 .item-input-main {
-  flex: 1;
+  flex: 1 1 130px;
+  min-width: 110px;
 }
 
 .item-name-field {
-  padding: 0.35rem 0.55rem;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.35rem 0.5rem;
   font-size: 0.8rem;
+  min-height: 34px !important;
 }
 
 .item-assignee-col {
-  width: 130px;
+  flex: 0 1 115px;
+  min-width: 90px;
 }
 
 .item-select {
-  padding: 0.35rem 0.5rem;
+  width: 100%;
+  padding: 0.35rem 0.45rem;
   font-size: 0.75rem;
+  min-height: 34px !important;
+  box-sizing: border-box;
 }
 
 .item-temp-col {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.2rem;
+  flex-shrink: 0;
 }
 
 .temp-num-input {
-  width: 65px;
-  padding: 0.35rem 0.4rem;
+  width: 52px;
+  padding: 0.35rem 0.25rem;
   font-size: 0.75rem;
   text-align: center;
+  min-height: 34px !important;
+  box-sizing: border-box;
 }
 
 .temp-to {
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   color: #64748b;
 }
 
 .item-unit-col {
-  width: 65px;
+  width: 52px;
+  flex-shrink: 0;
 }
 
 .unit-num-input {
   width: 100%;
-  padding: 0.35rem 0.4rem;
+  padding: 0.35rem 0.25rem;
   font-size: 0.75rem;
   text-align: center;
+  min-height: 34px !important;
+  box-sizing: border-box;
 }
 
 .btn-delete-item {
@@ -4017,13 +4050,16 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   color: #dc2626;
   border: none;
   border-radius: 4px;
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   font-size: 0.75rem;
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 .btn-delete-item:hover {
@@ -4035,12 +4071,13 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   background: #f8fafc;
   color: #475569;
   font-weight: 600;
-  font-size: 0.8rem;
-  padding: 0.65rem;
+  font-size: 0.78rem;
+  padding: 0.55rem;
   border-radius: var(--radius-md);
   cursor: pointer;
   transition: var(--transition);
   width: 100%;
+  box-sizing: border-box;
 }
 
 .btn-add-section-dashed:hover {

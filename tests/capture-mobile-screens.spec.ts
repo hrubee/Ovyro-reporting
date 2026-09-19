@@ -54,6 +54,21 @@ test('Capture mobile screenshots for visual review', async ({ page }) => {
   await page.waitForTimeout(500);
   await page.screenshot({ path: path.join(screenshotDir, '07-mobile-admin-templates.png'), fullPage: true });
 
+  // Open "Create New Report Tab" modal
+  await page.click('button:has-text("Create New Report Tab")');
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: path.join(screenshotDir, '09-mobile-modal-popup.png') });
+
+  // Scroll modal form down to inspect section items, add item button, and dustbin delete icons
+  const modalForm = page.locator('.modal-form');
+  if (await modalForm.isVisible()) {
+    await modalForm.evaluate((el) => el.scrollBy(0, 950));
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: path.join(screenshotDir, '10-mobile-modal-items-dustbin.png') });
+  }
+  await page.click('.modal-close-btn');
+  await page.waitForTimeout(300);
+
   // 7. Mobile Admin Reports
   await page.goto('/admin/reports');
   await page.waitForTimeout(500);
