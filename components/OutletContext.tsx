@@ -87,6 +87,12 @@ export function OutletProvider({
     setActiveOutletId(outletId);
     document.cookie = `pnr_outlet=${outletId}; path=/; max-age=31536000; SameSite=Lax`;
     
+    // If currently on an admin page, keep the user on the admin page
+    if (pathname && pathname.startsWith("/admin")) {
+      router.refresh();
+      return;
+    }
+
     // Find target outlet
     const target = outlets.find((o) => o.id === outletId);
     if (target && target.templates && target.templates.length > 0) {

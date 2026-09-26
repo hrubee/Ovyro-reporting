@@ -57,14 +57,50 @@ export default function UsersClient({
   const [selectedOutlets, setSelectedOutlets] = useState<string[]>(outlets.map((o) => o.id));
   const [selectedTemplates, setSelectedTemplates] = useState<string[]>(templates.map((t) => t.id));
 
-  // Role creation modal state
+  // Role modal state
   const [showRoleModal, setShowRoleModal] = useState(false);
-  const [newRoleName, setNewRoleName] = useState("");
-  const [newRoleDesc, setNewRoleDesc] = useState("");
-  const [newRolePerms, setNewRolePerms] = useState<string[]>(["submit_checklists"]);
+  const [editingRole, setEditingRole] = useState<any | null>(null);
+  const [roleName, setRoleName] = useState("");
+  const [roleDesc, setRoleDesc] = useState("");
+  const [rolePerms, setRolePerms] = useState<string[]>(["submit_checklists"]);
 
   const [saving, setSaving] = useState(false);
   const [alert, setAlert] = useState<{ type: "success" | "error"; msg: string } | null>(null);
+
+  const handleOpenCreateRole = () => {
+    setEditingRole(null);
+    setRoleName("");
+    setRoleDesc("");
+    setRolePerms(["submit_checklists"]);
+    setShowRoleModal(true);
+  };
+
+  const handleOpenEditRole = (role: any) => {
+    setEditingRole(role);
+    setRoleName(role.name);
+    setRoleDesc(role.description || "");
+    setRolePerms(role.permissions || ["submit_checklists"]);
+    setShowRoleModal(true);
+  };
+
+  const handleDeleteRole = async (roleId: string, roleName: string) => {
+    if (!confirm(`Are you sure you want to delete role "${roleName}"? Any users assigned to this role will revert to their base tier.`)) {
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/admin/roles?id=${roleId}`, { method: "DELETE" });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Failed to delete role");
+
+      setCustomRoles((prev) => prev.filter((r) => r.id !== roleId));
+      setAlert({ type: "success", msg: `✅ Role "${roleName}" deleted.` });
+    } catch (err: any) {
+      setAlert({ type: "error", msg: err.message || "Failed to delete role" });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleOpenCreateUser = () => {
     setEditingUser(null);
@@ -151,32 +187,47 @@ export default function UsersClient({
     }
   };
 
-  const handleCreateRole = async (e: React.FormEvent) => {
+  const handleSaveRole = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setAlert(null);
 
     try {
-      const res = await fetch("/api/admin/roles", {
-        method: "POST",
+      const url = "/api/admin/roles";
+      const method = editingRole ? "PUT" : "POST";
+      const payload: any = {
+        name: roleName.trim(),
+        description: roleDesc.trim(),
+        permissions: rolePerms,
+      };
+      if (editingRole) {
+        payload.id = editingRole.id;
+      }
+
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: newRoleName,
-          description: newRoleDesc,
-          permissions: newRolePerms,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Failed to create role");
+      if (!res.ok) throw new Error(json.error || "Failed to save role");
 
-      setCustomRoles([...customRoles, json.role]);
+      if (editingRole) {
+        setCustomRoles((prev) => prev.map((r) => (r.id === editingRole.id ? json.role : r)));
+        setAlert({ type: "success", msg: `✅ Role "${json.role.name}" updated successfully!` });
+      } else {
+        setCustomRoles([...customRoles, json.role]);
+        setAlert({ type: "success", msg: `✅ Role "${json.role.name}" created!` });
+      }
+
       setShowRoleModal(false);
-      setNewRoleName("");
-      setNewRoleDesc("");
-      setAlert({ type: "success", msg: `✅ Role "${json.role.name}" created!` });
+      setEditingRole(null);
+      setRoleName("");
+      setRoleDesc("");
+      router.refresh();
     } catch (err: any) {
-      setAlert({ type: "error", msg: err.message || "Failed to create role" });
+      setAlert({ type: "error", msg: err.message || "Failed to save role" });
     } finally {
       setSaving(false);
     }
@@ -206,7 +257,7 @@ export default function UsersClient({
 
         <div className="header-actions-group">
           <button
-            onClick={() => setShowRoleModal(true)}
+            onClick={handleOpenCreateRole}
             className="btn-secondary-action"
           >
             🛡️ Create Dynamic Role
@@ -356,7 +407,7 @@ export default function UsersClient({
               <div className="permissions-chips-box">
                 <span className="section-label">Granted Access:</span>
                 <div className="template-chips-wrap">
-                  {role.permissions.map((p) => {
+                  {role.permissions.map((p: string) => {
                     const def = SYSTEM_PERMISSIONS.find((sp) => sp.key === p);
                     return (
                       <span key={p} className="template-chip">
@@ -365,6 +416,23 @@ export default function UsersClient({
                     );
                   })}
                 </div>
+              </div>
+
+              <div className="template-actions-row" style={{ marginTop: "1rem" }}>
+                <button
+                  type="button"
+                  onClick={() => handleOpenEditRole(role)}
+                  className="btn-action-edit"
+                >
+                  ✏️ Edit Role & Permissions
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteRole(role.id, role.name)}
+                  className="btn-action-delete"
+                >
+                  🗑️ Delete
+                </button>
               </div>
             </div>
           ))}
@@ -550,26 +618,90 @@ export default function UsersClient({
         </div>
       )}
 
-      {/* Role Creation Modal */}
+      {/* Role Creation & Editing Modal */}
       {showRoleModal && (
         <div className="modal-backdrop">
           <div className="modal-card">
             <div className="modal-header">
-              <h2>🛡️ Create Dynamic Role</h2>
+              <h2>{editingRole ? `🛡️ Edit Dynamic Role: ${editingRole.name}` : "🛡️ Create Dynamic Role"}</h2>
               <button onClick={() => setShowRoleModal(false)} className="modal-close-btn">
                 ✕
               </button>
             </div>
 
-            <form onSubmit={handleCreateRole} className="modal-form">
+            <form onSubmit={handleSaveRole} className="modal-form">
+              {/* Presets for quick start if creating */}
+              {!editingRole && (
+                <div style={{ marginBottom: "1rem" }}>
+                  <span className="field-hint" style={{ display: "block", marginBottom: "0.4rem" }}>
+                    ⚡ Quick Role Templates:
+                  </span>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem" }}>
+                    {[
+                      {
+                        name: "Shift Supervisor",
+                        desc: "Reviews checklists, logs corrective actions, signs off",
+                        perms: ["submit_checklists", "supervisor_signoff", "view_reports"],
+                      },
+                      {
+                        name: "Head Chef / Kitchen Lead",
+                        desc: "Food safety oversight, temperature logging and hygiene checklists",
+                        perms: ["submit_checklists", "supervisor_signoff", "view_reports"],
+                      },
+                      {
+                        name: "Sanitation Supervisor",
+                        desc: "Sanitization standards, pest inspections, equipment logs",
+                        perms: ["submit_checklists", "supervisor_signoff", "view_reports"],
+                      },
+                      {
+                        name: "Line Worker / Cleaner",
+                        desc: "Daily checklists, equipment cleaning and cleaning SOPs",
+                        perms: ["submit_checklists"],
+                      },
+                      {
+                        name: "Facility Manager",
+                        desc: "Full facility access, reports export, team management",
+                        perms: [
+                          "submit_checklists",
+                          "supervisor_signoff",
+                          "view_reports",
+                          "export_audit_pack",
+                          "manage_outlets",
+                          "manage_team",
+                        ],
+                      },
+                      {
+                        name: "Quality Assurance Auditor",
+                        desc: "Third party or internal auditor with export and review permissions",
+                        perms: ["view_reports", "export_audit_pack"],
+                      },
+                    ].map((preset) => (
+                      <button
+                        key={preset.name}
+                        type="button"
+                        onClick={() => {
+                          setRoleName(preset.name);
+                          setRoleDesc(preset.desc);
+                          setRolePerms(preset.perms);
+                        }}
+                        className="preset-btn"
+                        style={{ fontSize: "0.75rem", padding: "0.25rem 0.5rem" }}
+                      >
+                        + {preset.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="form-group">
                 <label>Role Name *</label>
                 <input
                   type="text"
                   required
                   placeholder="e.g. Hygiene Auditor, Head Chef, Shift Supervisor"
-                  value={newRoleName}
-                  onChange={(e) => setNewRoleName(e.target.value)}
+                  value={roleName}
+                  onChange={(e) => setRoleName(e.target.value)}
                   className="form-input"
                 />
               </div>
@@ -579,25 +711,44 @@ export default function UsersClient({
                 <input
                   type="text"
                   placeholder="Responsibilities and access scope..."
-                  value={newRoleDesc}
-                  onChange={(e) => setNewRoleDesc(e.target.value)}
+                  value={roleDesc}
+                  onChange={(e) => setRoleDesc(e.target.value)}
                   className="form-input"
                 />
               </div>
 
               <div className="form-group">
-                <label>Role Default Permissions</label>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
+                  <label style={{ margin: 0 }}>Role Security & Operational Permissions ({rolePerms.length} selected)</label>
+                  <div style={{ display: "flex", gap: "0.5rem", fontSize: "0.75rem" }}>
+                    <button
+                      type="button"
+                      onClick={() => setRolePerms(SYSTEM_PERMISSIONS.map((p) => p.key))}
+                      className="btn-link-small"
+                    >
+                      Select All
+                    </button>
+                    <span>•</span>
+                    <button
+                      type="button"
+                      onClick={() => setRolePerms([])}
+                      className="btn-link-small"
+                    >
+                      Clear All
+                    </button>
+                  </div>
+                </div>
                 <div className="permissions-selection-grid">
                   {SYSTEM_PERMISSIONS.map((perm) => (
                     <label key={perm.key} className="perm-checkbox-card">
                       <input
                         type="checkbox"
-                        checked={newRolePerms.includes(perm.key)}
+                        checked={rolePerms.includes(perm.key)}
                         onChange={(e) => {
                           if (e.target.checked) {
-                            setNewRolePerms([...newRolePerms, perm.key]);
+                            setRolePerms([...rolePerms, perm.key]);
                           } else {
-                            setNewRolePerms(newRolePerms.filter((k) => k !== perm.key));
+                            setRolePerms(rolePerms.filter((k) => k !== perm.key));
                           }
                         }}
                       />
@@ -615,7 +766,7 @@ export default function UsersClient({
                   Cancel
                 </button>
                 <button type="submit" disabled={saving} className="btn-primary-save">
-                  {saving ? "Saving..." : "Create Role"}
+                  {saving ? "Saving..." : editingRole ? "Update Role" : "Create Role"}
                 </button>
               </div>
             </form>

@@ -3,15 +3,23 @@
 import React, { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 
+export type ItemInputType = "STATUS" | "TEMPERATURE" | "NUMERIC" | "TEXT" | "TIME" | "CLEAN_DIRTY";
+
 interface SectionItem {
   id: string;
   name: string;
+  itemType?: ItemInputType;
   defaultAssignee?: string;
   category?: string;
   machineNumber?: string;
   referenceTemp?: string;
   targetMinTemp?: number;
   targetMaxTemp?: number;
+  targetValue?: number;
+  unitLabel?: string;
+  minAllowed?: number;
+  maxAllowed?: number;
+  placeholder?: string;
 }
 
 interface Section {
@@ -38,7 +46,10 @@ const DEFAULT_STAFF = [
   "Staff Member",
   "Shift Supervisor",
   "Kitchen Lead",
+  "Head Chef",
   "Operator / Cleaner",
+  "Barista",
+  "Steward",
   "Technician",
 ];
 
@@ -54,19 +65,19 @@ const PRESETS: Record<string, { title: string; category: string; icon: string; f
         id: "sec-1",
         title: "Main Kitchen & Prep Area",
         items: [
-          { id: "item-1", name: "Floor & Drain Washing", defaultAssignee: "Staff Member" },
-          { id: "item-2", name: "Preparation Tables Sanitization", defaultAssignee: "Staff Member" },
-          { id: "item-3", name: "Wash Sinks & Grease Trap", defaultAssignee: "Staff Member" },
-          { id: "item-4", name: "Trash Bins Emptied & Lined", defaultAssignee: "Staff Member" },
+          { id: "item-1", name: "Floor & Drain Washing", itemType: "STATUS", defaultAssignee: "Staff Member" },
+          { id: "item-2", name: "Preparation Tables Sanitization", itemType: "STATUS", defaultAssignee: "Staff Member" },
+          { id: "item-3", name: "Wash Sinks & Grease Trap", itemType: "STATUS", defaultAssignee: "Staff Member" },
+          { id: "item-4", name: "Trash Bins Emptied & Lined", itemType: "STATUS", defaultAssignee: "Staff Member" },
         ],
       },
       {
         id: "sec-2",
         title: "Customer & Service Area",
         items: [
-          { id: "item-5", name: "Dining Tables & Chairs", defaultAssignee: "Staff Member" },
-          { id: "item-6", name: "Cash Counter & POS Screen", defaultAssignee: "Staff Member" },
-          { id: "item-7", name: "Restrooms & Handwash Station", defaultAssignee: "Staff Member" },
+          { id: "item-5", name: "Dining Tables & Chairs", itemType: "STATUS", defaultAssignee: "Staff Member" },
+          { id: "item-6", name: "Cash Counter & POS Screen", itemType: "STATUS", defaultAssignee: "Staff Member" },
+          { id: "item-7", name: "Restrooms & Handwash Station", itemType: "STATUS", defaultAssignee: "Staff Member" },
         ],
       },
     ],
@@ -82,17 +93,67 @@ const PRESETS: Record<string, { title: string; category: string; icon: string; f
         id: "sec-1",
         title: "Kitchen Chillers & Freezers",
         items: [
-          { id: "temp-1", name: "Under-counter Chiller", machineNumber: "1", referenceTemp: "+3 to +8°C", targetMinTemp: 3, targetMaxTemp: 8 },
-          { id: "temp-2", name: "Meat & Dairy Refrigerator", machineNumber: "2", referenceTemp: "+2 to +6°C", targetMinTemp: 2, targetMaxTemp: 6 },
-          { id: "temp-3", name: "Deep Freezer #1", machineNumber: "1", referenceTemp: "-22 to -18°C", targetMinTemp: -22, targetMaxTemp: -18 },
+          { id: "temp-1", name: "Under-counter Chiller", itemType: "TEMPERATURE", machineNumber: "1", referenceTemp: "+3 to +8°C", targetMinTemp: 3, targetMaxTemp: 8 },
+          { id: "temp-2", name: "Meat & Dairy Refrigerator", itemType: "TEMPERATURE", machineNumber: "2", referenceTemp: "+2 to +6°C", targetMinTemp: 2, targetMaxTemp: 6 },
+          { id: "temp-3", name: "Deep Freezer #1", itemType: "TEMPERATURE", machineNumber: "1", referenceTemp: "-22 to -18°C", targetMinTemp: -22, targetMaxTemp: -18 },
         ],
       },
       {
         id: "sec-2",
         title: "Display Chillers",
         items: [
-          { id: "temp-4", name: "Pastry & Dessert Display", machineNumber: "1", referenceTemp: "+2 to +8°C", targetMinTemp: 2, targetMaxTemp: 8 },
-          { id: "temp-5", name: "Beverage Cooler", machineNumber: "2", referenceTemp: "+4 to +10°C", targetMinTemp: 4, targetMaxTemp: 10 },
+          { id: "temp-4", name: "Pastry & Dessert Display", itemType: "TEMPERATURE", machineNumber: "1", referenceTemp: "+2 to +8°C", targetMinTemp: 2, targetMaxTemp: 8 },
+          { id: "temp-5", name: "Beverage Cooler", itemType: "TEMPERATURE", machineNumber: "2", referenceTemp: "+4 to +10°C", targetMinTemp: 4, targetMaxTemp: 10 },
+        ],
+      },
+    ],
+  },
+  CHEMICAL_SANITIZER: {
+    title: "Chemical Sanitizer & Dishwashing Log",
+    category: "CHEMICAL",
+    icon: "🧪",
+    frequency: "SHIFT_WISE",
+    description: "Chlorine/Quat concentration testing (PPM) and commercial dishwashing rinse temperature verification.",
+    sections: [
+      {
+        id: "sec-1",
+        title: "Sanitizer Sinks & Spray Solutions",
+        items: [
+          { id: "chem-1", name: "3-Compartment Sink Sanitizer (Quat/Chlorine)", itemType: "NUMERIC", targetValue: 200, unitLabel: "PPM", minAllowed: 150, maxAllowed: 400, defaultAssignee: "Staff Member" },
+          { id: "chem-2", name: "Food Contact Surface Sanitizer Bottles", itemType: "NUMERIC", targetValue: 200, unitLabel: "PPM", minAllowed: 150, maxAllowed: 400, defaultAssignee: "Staff Member" },
+        ],
+      },
+      {
+        id: "sec-2",
+        title: "Commercial Dishwasher Verification",
+        items: [
+          { id: "chem-3", name: "Dishwasher Wash Cycle Temp", itemType: "TEMPERATURE", targetMinTemp: 60, targetMaxTemp: 65, machineNumber: "1", referenceTemp: "+60 to +65°C", defaultAssignee: "Shift Supervisor" },
+          { id: "chem-4", name: "Dishwasher Final Sanitizing Rinse Temp", itemType: "TEMPERATURE", targetMinTemp: 82, targetMaxTemp: 90, machineNumber: "1", referenceTemp: "+82 to +90°C", defaultAssignee: "Shift Supervisor" },
+        ],
+      },
+    ],
+  },
+  FOOD_SAFETY_HACCP: {
+    title: "Cooking Core & Hot Holding Log",
+    category: "COOKING_HACCP",
+    icon: "🍳",
+    frequency: "SHIFT_WISE",
+    description: "HACCP critical control point logging: core internal cooking temperatures and hot holding tolerances.",
+    sections: [
+      {
+        id: "sec-1",
+        title: "Core Cooking Critical Temperatures (Min 75°C)",
+        items: [
+          { id: "haccp-1", name: "Poultry & Chicken Core Internal Temp", itemType: "TEMPERATURE", targetMinTemp: 75, targetMaxTemp: 95, referenceTemp: "Min 75°C", defaultAssignee: "Kitchen Lead" },
+          { id: "haccp-2", name: "Minced Meat / Burgers Internal Temp", itemType: "TEMPERATURE", targetMinTemp: 70, targetMaxTemp: 90, referenceTemp: "Min 70°C", defaultAssignee: "Kitchen Lead" },
+        ],
+      },
+      {
+        id: "sec-2",
+        title: "Hot Holding Display Units (Min 63°C)",
+        items: [
+          { id: "haccp-3", name: "Bain Marie Display Unit #1", itemType: "TEMPERATURE", targetMinTemp: 63, targetMaxTemp: 85, referenceTemp: "Min 63°C", defaultAssignee: "Staff Member" },
+          { id: "haccp-4", name: "Soup & Gravy Kettle Warmer", itemType: "TEMPERATURE", targetMinTemp: 65, targetMaxTemp: 85, referenceTemp: "Min 65°C", defaultAssignee: "Staff Member" },
         ],
       },
     ],
@@ -108,17 +169,17 @@ const PRESETS: Record<string, { title: string; category: string; icon: string; f
         id: "sec-1",
         title: "Cooking Equipment",
         items: [
-          { id: "eq-1", name: "Convection Oven", category: "Cooking", defaultAssignee: "Staff Member" },
-          { id: "eq-2", name: "Commercial Fryer", category: "Cooking", defaultAssignee: "Staff Member" },
-          { id: "eq-3", name: "Dough Mixer & Hook", category: "Baking", defaultAssignee: "Staff Member" },
+          { id: "eq-1", name: "Convection Oven", itemType: "CLEAN_DIRTY", category: "Cooking", defaultAssignee: "Staff Member" },
+          { id: "eq-2", name: "Commercial Fryer", itemType: "CLEAN_DIRTY", category: "Cooking", defaultAssignee: "Staff Member" },
+          { id: "eq-3", name: "Dough Mixer & Hook", itemType: "CLEAN_DIRTY", category: "Baking", defaultAssignee: "Staff Member" },
         ],
       },
       {
         id: "sec-2",
         title: "Beverage Machinery",
         items: [
-          { id: "eq-4", name: "Espresso Machine Group Heads", category: "Beverage", defaultAssignee: "Staff Member" },
-          { id: "eq-5", name: "Ice Dispenser Machine", category: "Beverage", defaultAssignee: "Staff Member" },
+          { id: "eq-4", name: "Espresso Machine Group Heads", itemType: "CLEAN_DIRTY", category: "Beverage", defaultAssignee: "Staff Member" },
+          { id: "eq-5", name: "Ice Dispenser Machine", itemType: "CLEAN_DIRTY", category: "Beverage", defaultAssignee: "Staff Member" },
         ],
       },
     ],
@@ -134,9 +195,25 @@ const PRESETS: Record<string, { title: string; category: string; icon: string; f
         id: "sec-1",
         title: "Glass & Structure",
         items: [
-          { id: "sf-1", name: "Front Entrance Glass Door", defaultAssignee: "Staff Member" },
-          { id: "sf-2", name: "Display Glass Enclosure", defaultAssignee: "Staff Member" },
-          { id: "sf-3", name: "Kitchen Partition Glass", defaultAssignee: "Staff Member" },
+          { id: "sf-1", name: "Front Entrance Glass Door", itemType: "STATUS", defaultAssignee: "Staff Member" },
+          { id: "sf-2", name: "Display Glass Enclosure", itemType: "STATUS", defaultAssignee: "Staff Member" },
+          { id: "sf-3", name: "Pest Bait Stations & Fly Catchers", itemType: "STATUS", defaultAssignee: "Staff Member" },
+        ],
+      },
+    ],
+  },
+  BLANK: {
+    title: "New Custom Report Tab",
+    category: "CUSTOM",
+    icon: "📋",
+    frequency: "DAILY",
+    description: "Custom operational inspection checklist built from scratch.",
+    sections: [
+      {
+        id: "sec-1",
+        title: "Inspection Section 1",
+        items: [
+          { id: "custom-1", name: "First Inspection Checkpoint", itemType: "STATUS", defaultAssignee: "Staff Member" },
         ],
       },
     ],
@@ -177,16 +254,49 @@ export default function TemplateManagerClient({
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
   const [category, setCategory] = useState("HOUSEKEEPING");
+  const [customCategory, setCustomCategory] = useState("");
   const [icon, setIcon] = useState("📋");
   const [description, setDescription] = useState("");
   const [frequency, setFrequency] = useState("DAILY");
   const [shifts, setShifts] = useState<string[]>(["Morning", "Evening"]);
+  const [customShiftInput, setCustomShiftInput] = useState("");
   const [selectedOutlets, setSelectedOutlets] = useState<string[]>([]);
 
   // Sections & Builder state
   const [builderMode, setBuilderMode] = useState<"visual" | "bulk" | "preview">("visual");
   const [sections, setSections] = useState<Section[]>([]);
   const [bulkText, setBulkText] = useState("");
+
+  const availableShiftsPool = useMemo(() => {
+    const set = new Set<string>(["Morning", "Afternoon", "Evening", "Night"]);
+    outlets.forEach((o) => {
+      const rawShifts: any = o.shifts;
+      const sArr: string[] = Array.isArray(rawShifts)
+        ? rawShifts
+        : typeof rawShifts === "string"
+        ? (() => {
+            try {
+              return JSON.parse(rawShifts);
+            } catch {
+              return rawShifts.split(",").map((s: string) => s.trim());
+            }
+          })()
+        : [];
+      sArr.forEach((s: string) => {
+        if (s && typeof s === "string") set.add(s.trim());
+      });
+    });
+    return Array.from(set).filter(Boolean);
+  }, [outlets]);
+
+  const handleAddCustomShift = () => {
+    const trimmed = customShiftInput.trim();
+    if (!trimmed) return;
+    if (!shifts.includes(trimmed)) {
+      setShifts([...shifts, trimmed]);
+    }
+    setCustomShiftInput("");
+  };
 
   const showToast = (msg: string) => {
     setSuccessToast(msg);
@@ -199,10 +309,12 @@ export default function TemplateManagerClient({
     setTitle(preset.title);
     setSlug("daily-housekeeping-sop");
     setCategory(preset.category);
+    setCustomCategory("");
     setIcon(preset.icon);
     setDescription(preset.description);
     setFrequency(preset.frequency);
     setShifts(["Morning", "Afternoon", "Evening", "Night"]);
+    setCustomShiftInput("");
     setSelectedOutlets(outlets.map((o) => o.id));
     setSections(JSON.parse(JSON.stringify(preset.sections)));
     setBulkText(
@@ -222,6 +334,7 @@ export default function TemplateManagerClient({
       setSlug(p.title.toLowerCase().replace(/[^a-z0-9]/g, "-"));
     }
     setCategory(p.category);
+    setCustomCategory("");
     setIcon(p.icon);
     setDescription(p.description);
     setFrequency(p.frequency);
@@ -233,7 +346,14 @@ export default function TemplateManagerClient({
     setEditingTemplate(tpl);
     setTitle(tpl.title || "");
     setSlug(tpl.slug || "");
-    setCategory(tpl.category || "HOUSEKEEPING");
+    const standardCategories = ["HOUSEKEEPING", "TEMPERATURE", "EQUIPMENT", "SAFETY_GLASS", "CHEMICAL", "COOKING_HACCP", "MAINTENANCE"];
+    if (standardCategories.includes(tpl.category)) {
+      setCategory(tpl.category);
+      setCustomCategory("");
+    } else {
+      setCategory("CUSTOM");
+      setCustomCategory(tpl.category || "");
+    }
     setIcon(tpl.icon || "📋");
     setDescription(tpl.description || "");
     setFrequency(tpl.frequency || "DAILY");
@@ -247,6 +367,7 @@ export default function TemplateManagerClient({
     } else {
       setShifts(["Morning", "Evening"]);
     }
+    setCustomShiftInput("");
 
     // Sections
     if (parsedSchema.sections && Array.isArray(parsedSchema.sections) && parsedSchema.sections.length > 0) {
@@ -262,7 +383,7 @@ export default function TemplateManagerClient({
           id: "sec-1",
           title: `${tpl.title} Checkpoints`,
           items: [
-            { id: "item-1", name: "Main Inspection Area", defaultAssignee: "Staff Member" },
+            { id: "item-1", name: "Main Inspection Area", itemType: "STATUS", defaultAssignee: "Staff Member" },
           ],
         },
       ];
@@ -312,15 +433,21 @@ export default function TemplateManagerClient({
     const updated = [...sections];
     const sec = updated[secIndex];
     const count = (sec.items || []).length + 1;
+    const defaultType: ItemInputType = category === "TEMPERATURE" ? "TEMPERATURE" : "STATUS";
     const newItem: SectionItem = {
       id: `item-${Date.now().toString().slice(-4)}-${count}`,
       name: `Checkpoint #${count}`,
+      itemType: defaultType,
       defaultAssignee: DEFAULT_STAFF[0],
       category: sec.title,
-      targetMinTemp: category === "TEMPERATURE" ? 2 : undefined,
-      targetMaxTemp: category === "TEMPERATURE" ? 8 : undefined,
-      referenceTemp: category === "TEMPERATURE" ? "+2 to +8°C" : undefined,
-      machineNumber: category === "TEMPERATURE" ? `${count}` : undefined,
+      targetMinTemp: defaultType === "TEMPERATURE" ? 2 : undefined,
+      targetMaxTemp: defaultType === "TEMPERATURE" ? 8 : undefined,
+      referenceTemp: defaultType === "TEMPERATURE" ? "+2 to +8°C" : undefined,
+      machineNumber: defaultType === "TEMPERATURE" ? `${count}` : undefined,
+      targetValue: 200,
+      unitLabel: "PPM",
+      minAllowed: 150,
+      maxAllowed: 400,
     };
     sec.items = [...(sec.items || []), newItem];
     setSections(updated);
@@ -331,10 +458,24 @@ export default function TemplateManagerClient({
     const item = { ...updated[secIndex].items[itemIndex], [field]: value };
     
     // Auto sync referenceTemp if min/max changed for temperature
-    if (category === "TEMPERATURE" && (field === "targetMinTemp" || field === "targetMaxTemp")) {
+    if (field === "targetMinTemp" || field === "targetMaxTemp") {
       const min = field === "targetMinTemp" ? value : item.targetMinTemp ?? 0;
       const max = field === "targetMaxTemp" ? value : item.targetMaxTemp ?? 10;
       item.referenceTemp = `${min > 0 ? "+" + min : min} to ${max > 0 ? "+" + max : max}°C`;
+    }
+
+    if (field === "itemType") {
+      if (value === "TEMPERATURE") {
+        item.targetMinTemp = item.targetMinTemp ?? 2;
+        item.targetMaxTemp = item.targetMaxTemp ?? 8;
+        item.referenceTemp = item.referenceTemp ?? "+2 to +8°C";
+        item.machineNumber = item.machineNumber ?? `${itemIndex + 1}`;
+      } else if (value === "NUMERIC") {
+        item.targetValue = item.targetValue ?? 200;
+        item.unitLabel = item.unitLabel ?? "PPM";
+        item.minAllowed = item.minAllowed ?? 150;
+        item.maxAllowed = item.maxAllowed ?? 400;
+      }
     }
 
     updated[secIndex].items[itemIndex] = item;
@@ -364,15 +505,18 @@ export default function TemplateManagerClient({
         return {
           id: `temp-${idx + 1}`,
           name,
+          itemType: "TEMPERATURE",
           machineNumber: `${idx + 1}`,
           referenceTemp: "+2 to +8°C",
           targetMinTemp: 2,
           targetMaxTemp: 8,
+          defaultAssignee: DEFAULT_STAFF[idx % DEFAULT_STAFF.length],
         };
       }
       return {
         id: `item-${idx + 1}`,
         name,
+        itemType: "STATUS",
         defaultAssignee: DEFAULT_STAFF[idx % DEFAULT_STAFF.length],
         category: title,
       };
@@ -400,8 +544,10 @@ export default function TemplateManagerClient({
       return;
     }
 
+    const finalCategory = category === "CUSTOM" && customCategory.trim() ? customCategory.trim().toUpperCase() : category;
+
     const schema = {
-      type: category,
+      type: finalCategory,
       frequency,
       shifts: frequency === "SHIFT_WISE" ? shifts : undefined,
       sections,
@@ -410,7 +556,7 @@ export default function TemplateManagerClient({
     const payload = {
       title,
       slug: slug || title.toLowerCase().replace(/[^a-z0-9]/g, "-"),
-      category,
+      category: finalCategory,
       icon,
       description,
       frequency,
@@ -595,9 +741,9 @@ export default function TemplateManagerClient({
                       key={key}
                       type="button"
                       onClick={() => handlePresetSelect(key)}
-                      className={`preset-btn ${category === key ? "active" : ""}`}
+                      className={`preset-btn ${category === PRESETS[key].category || (key === "BLANK" && category === "CUSTOM") ? "active" : ""}`}
                     >
-                      {PRESETS[key].icon} {PRESETS[key].category}
+                      {PRESETS[key].icon} {key === "BLANK" ? "Start Blank (Custom)" : key.replace(/_/g, " ")}
                     </button>
                   ))}
                 </div>
@@ -649,11 +795,13 @@ export default function TemplateManagerClient({
                       className="form-select"
                     >
                       <option value="HOUSEKEEPING">🧹 Housekeeping & Area SOPs</option>
-                      <option value="EQUIPMENT">⚙️ Equipment Cleaning Log</option>
                       <option value="TEMPERATURE">🧊 Temperature & Cold Chain</option>
+                      <option value="EQUIPMENT">⚙️ Equipment Cleaning Log</option>
                       <option value="SAFETY_GLASS">🪟 Safety, Glass & Pest</option>
+                      <option value="CHEMICAL">🧪 Chemical Sanitizer & PPM</option>
+                      <option value="COOKING_HACCP">🍳 Cooking Core & Hot Holding</option>
                       <option value="MAINTENANCE">🗓️ Periodic Maintenance</option>
-                      <option value="CUSTOM">📋 Custom Audit</option>
+                      <option value="CUSTOM">✨ Custom Category Name...</option>
                     </select>
                   </div>
 
@@ -675,13 +823,27 @@ export default function TemplateManagerClient({
                       onChange={(e) => setFrequency(e.target.value)}
                       className="form-select"
                     >
-                      <option value="SHIFT_WISE">Shift-Wise (Morning/Evening/Night)</option>
-                      <option value="DAILY">Daily</option>
+                      <option value="SHIFT_WISE">Shift-Wise (Morning, Evening, etc.)</option>
+                      <option value="DAILY">Daily (Once per day)</option>
                       <option value="WEEKLY">Weekly</option>
                       <option value="MONTHLY">Monthly</option>
                     </select>
                   </div>
                 </div>
+
+                {category === "CUSTOM" && (
+                  <div className="form-group">
+                    <label>Custom Category Name *</label>
+                    <input
+                      type="text"
+                      required
+                      value={customCategory}
+                      onChange={(e) => setCustomCategory(e.target.value)}
+                      placeholder="e.g. OIL_FRYER_LOG, ALLERGEN_AUDIT, PERSONAL_HYGIENE"
+                      className="form-input"
+                    />
+                  </div>
+                )}
 
                 <div className="form-group">
                   <label>Description</label>
@@ -697,9 +859,13 @@ export default function TemplateManagerClient({
                 {/* Shift Configuration if SHIFT_WISE */}
                 {frequency === "SHIFT_WISE" && (
                   <div className="form-group shift-config-box">
-                    <label>Configured Shifts for this Template</label>
-                    <div className="shift-tags-row">
-                      {["Morning", "Afternoon", "Evening", "Night"].map((s) => (
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.4rem" }}>
+                      <label style={{ margin: 0 }}>Operational Shifts ({shifts.length} assigned)</label>
+                      <span className="field-hint" style={{ margin: 0 }}>Select which shifts require this log</span>
+                    </div>
+
+                    <div className="shift-tags-row" style={{ marginBottom: "0.6rem" }}>
+                      {availableShiftsPool.map((s) => (
                         <label key={s} className="shift-tag-label">
                           <input
                             type="checkbox"
@@ -715,6 +881,32 @@ export default function TemplateManagerClient({
                           <span>{s} Shift</span>
                         </label>
                       ))}
+                    </div>
+
+                    {/* Add Custom Shift to Template */}
+                    <div style={{ display: "flex", gap: "0.5rem" }}>
+                      <input
+                        type="text"
+                        value={customShiftInput}
+                        onChange={(e) => setCustomShiftInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleAddCustomShift();
+                          }
+                        }}
+                        placeholder="Add custom shift to this report tab (e.g. Closing, Late Night)..."
+                        className="form-input"
+                        style={{ flex: 1, fontSize: "0.82rem" }}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddCustomShift}
+                        className="btn-add-item-small"
+                        style={{ padding: "0.35rem 0.75rem" }}
+                      >
+                        ➕ Add Shift
+                      </button>
                     </div>
                   </div>
                 )}
@@ -808,6 +1000,26 @@ export default function TemplateManagerClient({
                                 />
                               </div>
 
+                              {/* Item Type Selector */}
+                              <div style={{ width: "135px", flexShrink: 0 }}>
+                                <select
+                                  value={item.itemType || (category === "TEMPERATURE" ? "TEMPERATURE" : "STATUS")}
+                                  onChange={(e) =>
+                                    handleUpdateItem(secIdx, itemIdx, "itemType", e.target.value as ItemInputType)
+                                  }
+                                  className="form-select item-select"
+                                  style={{ fontWeight: 600, fontSize: "0.74rem" }}
+                                  title="Checkpoint Input Type"
+                                >
+                                  <option value="STATUS">✓/✕ Pass / Fail</option>
+                                  <option value="TEMPERATURE">🧊 Temperature</option>
+                                  <option value="NUMERIC">🔢 Numeric / PPM</option>
+                                  <option value="CLEAN_DIRTY">🧼 Clean / Needs Action</option>
+                                  <option value="TEXT">📝 Text / Notes</option>
+                                  <option value="TIME">🕒 Time Verification</option>
+                                </select>
+                              </div>
+
                               {/* Assignee */}
                               <div className="item-assignee-col">
                                 <select
@@ -826,7 +1038,7 @@ export default function TemplateManagerClient({
                               </div>
 
                               {/* Temperature Specific Columns */}
-                              {category === "TEMPERATURE" && (
+                              {(item.itemType === "TEMPERATURE" || (!item.itemType && category === "TEMPERATURE")) && (
                                 <>
                                   <div className="item-temp-col">
                                     <input
@@ -881,6 +1093,72 @@ export default function TemplateManagerClient({
                                     />
                                   </div>
                                 </>
+                              )}
+
+                              {/* Numeric / Chemical Specific Columns */}
+                              {item.itemType === "NUMERIC" && (
+                                <div style={{ display: "flex", gap: "0.3rem", alignItems: "center", flexShrink: 0 }}>
+                                  <input
+                                    type="number"
+                                    value={item.targetValue ?? 200}
+                                    onChange={(e) =>
+                                      handleUpdateItem(secIdx, itemIdx, "targetValue", parseFloat(e.target.value))
+                                    }
+                                    placeholder="Target"
+                                    className="form-input temp-num-input"
+                                    title="Target Value (e.g. 200)"
+                                  />
+                                  <input
+                                    type="text"
+                                    value={item.unitLabel || "PPM"}
+                                    onChange={(e) =>
+                                      handleUpdateItem(secIdx, itemIdx, "unitLabel", e.target.value)
+                                    }
+                                    placeholder="Unit (PPM, %)"
+                                    className="form-input unit-num-input"
+                                    style={{ width: "60px" }}
+                                    title="Unit Label"
+                                  />
+                                  <input
+                                    type="number"
+                                    value={item.minAllowed ?? 150}
+                                    onChange={(e) =>
+                                      handleUpdateItem(secIdx, itemIdx, "minAllowed", parseFloat(e.target.value))
+                                    }
+                                    placeholder="Min"
+                                    className="form-input temp-num-input"
+                                    style={{ width: "50px" }}
+                                    title="Min Acceptable"
+                                  />
+                                  <span className="temp-to">-</span>
+                                  <input
+                                    type="number"
+                                    value={item.maxAllowed ?? 400}
+                                    onChange={(e) =>
+                                      handleUpdateItem(secIdx, itemIdx, "maxAllowed", parseFloat(e.target.value))
+                                    }
+                                    placeholder="Max"
+                                    className="form-input temp-num-input"
+                                    style={{ width: "50px" }}
+                                    title="Max Acceptable"
+                                  />
+                                </div>
+                              )}
+
+                              {/* Text Specific Columns */}
+                              {item.itemType === "TEXT" && (
+                                <div style={{ width: "120px", flexShrink: 0 }}>
+                                  <input
+                                    type="text"
+                                    value={item.placeholder || ""}
+                                    onChange={(e) =>
+                                      handleUpdateItem(secIdx, itemIdx, "placeholder", e.target.value)
+                                    }
+                                    placeholder="Placeholder..."
+                                    className="form-input item-select"
+                                    title="Field Hint"
+                                  />
+                                </div>
                               )}
 
                               {/* Delete Item */}

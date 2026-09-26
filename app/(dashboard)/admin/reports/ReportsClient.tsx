@@ -26,6 +26,184 @@ interface ReportsClientProps {
   templates: Array<{ id: string; title: string; icon: string; category: string; slug: string }>;
 }
 
+interface NormalizedCheckpoint {
+  id?: string;
+  name: string;
+  type: string;
+  result: string;
+  badgeType: "pass" | "breach" | "na" | "info";
+  staff?: string;
+  time?: string;
+  notes?: string;
+}
+
+function extractNormalizedCheckpoints(data: any): NormalizedCheckpoint[] {
+  if (!data) return [];
+  const list: NormalizedCheckpoint[] = [];
+
+  // Dynamic schema checkpoints
+  if (data.checkpoints && typeof data.checkpoints === "object") {
+    Object.values(data.checkpoints).forEach((cp: any) => {
+      const type = cp.itemType || "STATUS";
+      let result = "";
+      let badgeType: "pass" | "breach" | "na" | "info" = "info";
+
+      if (type === "TEMPERATURE") {
+        if (cp.temp === "NA" || cp.temp === "N/A" || !cp.temp) {
+          result = "N/A";
+          badgeType = "na";
+        } else {
+          const num = parseFloat(cp.temp);
+          const min = cp.min ?? -20;
+          const max = cp.max ?? 10;
+          const unit = cp.unit || "°C";
+          if (!isNaN(num) && (num < min || num > max)) {
+            result = `${cp.temp}${unit} ⚠️ (Out: ${min} to ${max}${unit})`;
+            badgeType = "breach";
+          } else {
+            result = `${cp.temp}${unit} (Safe: ${min} to ${max}${unit})`;
+            badgeType = "pass";
+          }
+        }
+      } else if (type === "NUMERIC") {
+        if (cp.value === "NA" || cp.value === "N/A" || cp.value === "") {
+          result = "N/A";
+          badgeType = "na";
+        } else {
+          const num = parseFloat(cp.value);
+          const hasMin = cp.min !== undefined && cp.min !== null;
+          const hasMax = cp.max !== undefined && cp.max !== null;
+          const unit = cp.unit || "";
+          if (!isNaN(num) && ((hasMin && num < cp.min) || (hasMax && num > cp.max))) {
+            result = `${cp.value} ${unit} ⚠️ (Target: ${cp.min ?? "-∞"} - ${cp.max ?? "+∞"} ${unit})`;
+            badgeType = "breach";
+          } else {
+            result = `${cp.value} ${unit} ✓`;
+            badgeType = "pass";
+          }
+        }
+      } else if (type === "CLEAN_DIRTY") {
+        if (cp.status === "NA" || cp.status === "N/A") {
+          result = "N/A";
+          badgeType = "na";
+        } else if (cp.status === "CLEAN" || cp.status === "YES") {
+          result = "Clean & Sanitized";
+          badgeType = "pass";
+        } else {
+          result = "Needs Attention";
+          badgeType = "breach";
+        }
+      } else if (type === "TEXT") {
+        result = cp.value || "Logged";
+        badgeType = "info";
+      } else if (type === "TIME") {
+        result = cp.time || "Logged";
+        badgeType = "info";
+      } else {
+        if (cp.status === "NA" || cp.status === "N/A") {
+          result = "N/A";
+          badgeType = "na";
+        } else if (cp.status === "YES" || cp.status === "PASS" || cp.status === "DONE" || cp.status === true) {
+          result = "YES / Pass";
+          badgeType = "pass";
+        } else {
+          result = "NO / Flagged";
+          badgeType = "breach";
+        }
+      }
+
+      list.push({
+        name: cp.name || "Checkpoint",
+        type,
+        result,
+        badgeType,
+        staff: cp.assignee,
+        time: cp.time,
+        notes: cp.notes,
+      });
+    });
+    return list;
+  }
+
+  // Legacy format: items
+  if (Array.isArray(data.items)) {
+    data.items.forEach((it: any) => {
+      const isPass = it.status === "YES" || it.status === "DONE" || it.status === true;
+      const isNa = it.status === "NA" || it.status === "N/A";
+      list.push({
+        name: it.name || "Housekeeping Item",
+        type: "Housekeeping",
+        result: it.status || "YES",
+        badgeType: isNa ? "na" : isPass ? "pass" : "breach",
+        staff: it.cleanedBy,
+        time: it.time,
+      });
+    });
+  }
+
+  // Legacy format: completedItems
+  if (Array.isArray(data.completedItems)) {
+    data.completedItems.forEach((ci: any) => {
+      const isPass = ci.status === "YES" || ci.status === "DONE" || ci.status === true;
+      const isNa = ci.status === "NA" || ci.status === "N/A";
+      list.push({
+        name: ci.name || "Equipment Unit",
+        type: ci.category || "Equipment",
+        result: ci.status || "YES",
+        badgeType: isNa ? "na" : isPass ? "pass" : "breach",
+        staff: ci.cleanedBy,
+        time: ci.time,
+      });
+    });
+  }
+
+  // Legacy format: readings
+  if (Array.isArray(data.readings)) {
+    data.readings.forEach((r: any) => {
+      const isBreach = r.status === "BREACH";
+      list.push({
+        name: r.name || "Refrigeration Unit",
+        type: "Cold Chain",
+        result: `AM: ${r.morningTemp || "N/A"}°C | PM: ${r.eveningTemp || "N/A"}°C (${r.referenceTemp || "Standard"})`,
+        badgeType: isBreach ? "breach" : "pass",
+      });
+    });
+  }
+
+  // Legacy format: locations
+  if (Array.isArray(data.locations)) {
+    data.locations.forEach((loc: any) => {
+      const isPass = loc.status === "YES" || loc.status === "INTACT";
+      const isNa = loc.status === "NA" || loc.status === "N/A";
+      list.push({
+        name: loc.location || "Glass/Fixture",
+        type: "Structural / Safety",
+        result: loc.status || "YES",
+        badgeType: isNa ? "na" : isPass ? "pass" : "breach",
+        staff: loc.cleanedBy,
+      });
+    });
+  }
+
+  // Legacy format: tasks
+  if (Array.isArray(data.tasks)) {
+    data.tasks.forEach((t: any) => {
+      const isPass = t.status === "YES" || t.status === "DONE";
+      const isNa = t.status === "NA" || t.status === "N/A";
+      list.push({
+        name: t.task || "Task",
+        type: t.category || "Maintenance",
+        result: t.status || "YES",
+        badgeType: isNa ? "na" : isPass ? "pass" : "breach",
+        staff: t.completedBy,
+        notes: t.notes,
+      });
+    });
+  }
+
+  return list;
+}
+
 export default function ReportsClient({
   submissions,
   outlets,
@@ -293,10 +471,106 @@ export default function ReportsClient({
                                 </div>
                               </div>
 
-                              <div className="raw-data-preview">
-                                <strong>Log Data Payload:</strong>
-                                <pre>{JSON.stringify(sub.data, null, 2)}</pre>
-                              </div>
+                              {/* Structured Checkpoints Inspection View */}
+                              {(() => {
+                                const checkpoints = extractNormalizedCheckpoints(sub.data);
+                                const passCount = checkpoints.filter((c) => c.badgeType === "pass").length;
+                                const breachCount = checkpoints.filter((c) => c.badgeType === "breach").length;
+                                const naCount = checkpoints.filter((c) => c.badgeType === "na").length;
+
+                                return (
+                                  <div style={{ marginTop: "1rem" }}>
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem", flexWrap: "wrap", gap: "0.5rem" }}>
+                                      <strong style={{ fontSize: "0.95rem" }}>
+                                        Audit Inspection Details ({checkpoints.length} Checkpoints Logged):
+                                      </strong>
+                                      <div style={{ display: "flex", gap: "0.5rem", fontSize: "0.8rem" }}>
+                                        <span style={{ background: "#f0fdf4", color: "#166534", padding: "2px 8px", borderRadius: "12px", border: "1px solid #bbf7d0", fontWeight: 600 }}>
+                                          ✓ {passCount} In-Spec / Pass
+                                        </span>
+                                        {breachCount > 0 && (
+                                          <span style={{ background: "#fef2f2", color: "#991b1b", padding: "2px 8px", borderRadius: "12px", border: "1px solid #fecaca", fontWeight: 600 }}>
+                                            ⚠️ {breachCount} Breaches / Action
+                                          </span>
+                                        )}
+                                        {naCount > 0 && (
+                                          <span style={{ background: "#f8fafc", color: "#64748b", padding: "2px 8px", borderRadius: "12px", border: "1px solid #e2e8f0" }}>
+                                            — {naCount} N/A
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    {checkpoints.length > 0 ? (
+                                      <div className="table-responsive" style={{ background: "white", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+                                        <table className="audit-table" style={{ margin: 0 }}>
+                                          <thead>
+                                            <tr>
+                                              <th>Checkpoint Name</th>
+                                              <th>Type</th>
+                                              <th>Recorded Value / Status</th>
+                                              <th>Inspected By</th>
+                                              <th>Time</th>
+                                              <th>Notes</th>
+                                            </tr>
+                                          </thead>
+                                          <tbody>
+                                            {checkpoints.map((cp, cIdx) => (
+                                              <tr key={cIdx} style={{ backgroundColor: cp.badgeType === "breach" ? "#fff1f2" : undefined }}>
+                                                <td style={{ fontWeight: 600 }}>{cp.name}</td>
+                                                <td>
+                                                  <span className="category-pill" style={{ fontSize: "0.75rem" }}>{cp.type}</span>
+                                                </td>
+                                                <td>
+                                                  <span
+                                                    style={{
+                                                      display: "inline-block",
+                                                      padding: "2px 8px",
+                                                      borderRadius: "4px",
+                                                      fontSize: "0.8rem",
+                                                      fontWeight: 600,
+                                                      backgroundColor:
+                                                        cp.badgeType === "pass"
+                                                          ? "#dcfce7"
+                                                          : cp.badgeType === "breach"
+                                                          ? "#fee2e2"
+                                                          : cp.badgeType === "na"
+                                                          ? "#f1f5f9"
+                                                          : "#e0f2fe",
+                                                      color:
+                                                        cp.badgeType === "pass"
+                                                          ? "#15803d"
+                                                          : cp.badgeType === "breach"
+                                                          ? "#b91c1c"
+                                                          : cp.badgeType === "na"
+                                                          ? "#64748b"
+                                                          : "#0369a1",
+                                                    }}
+                                                  >
+                                                    {cp.result}
+                                                  </span>
+                                                </td>
+                                                <td style={{ fontSize: "0.85rem", color: "#475569" }}>{cp.staff || "—"}</td>
+                                                <td style={{ fontSize: "0.85rem", color: "#475569" }}>{cp.time || "—"}</td>
+                                                <td style={{ fontSize: "0.8rem", color: "#64748b" }}>{cp.notes || "—"}</td>
+                                              </tr>
+                                            ))}
+                                          </tbody>
+                                        </table>
+                                      </div>
+                                    ) : (
+                                      <p style={{ fontSize: "0.85rem", color: "#64748b", margin: "0.5rem 0" }}>No structured checkpoints logged in this submission.</p>
+                                    )}
+
+                                    <details style={{ marginTop: "0.75rem", fontSize: "0.8rem", color: "#64748b" }}>
+                                      <summary style={{ cursor: "pointer", fontWeight: 600 }}>View Raw JSON Data Payload</summary>
+                                      <div className="raw-data-preview" style={{ marginTop: "0.5rem" }}>
+                                        <pre>{JSON.stringify(sub.data, null, 2)}</pre>
+                                      </div>
+                                    </details>
+                                  </div>
+                                );
+                              })()}
                             </div>
                           </td>
                         </tr>

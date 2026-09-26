@@ -55,8 +55,20 @@ export const SYSTEM_PERMISSIONS: PermissionDefinition[] = [
   },
   {
     key: "manage_team",
-    label: "Manage Team, Roles & Permissions",
-    description: "Can create team members, configure custom roles, and assign permissions.",
+    label: "Manage Team & Assignments",
+    description: "Can create team members, invite staff, and assign facility & checklist access.",
+    category: "MANAGEMENT",
+  },
+  {
+    key: "manage_roles",
+    label: "Create & Edit Security Roles",
+    description: "Can define custom dynamic roles and configure security permission sets.",
+    category: "MANAGEMENT",
+  },
+  {
+    key: "edit_submissions",
+    label: "Edit Historical Submissions",
+    description: "Can modify or correct past submitted checklist logs and notes.",
     category: "MANAGEMENT",
   },
 ];

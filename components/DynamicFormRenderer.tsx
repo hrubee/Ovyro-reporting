@@ -232,6 +232,50 @@ function TouchTempSelect({
   );
 }
 
+function CleanDirtyNaToggle({
+  value,
+  onChange,
+}: {
+  value?: string;
+  onChange: (val: "CLEAN" | "DIRTY" | "NA") => void;
+}) {
+  const current =
+    value === "DIRTY" || value === "NEEDS_CLEANING"
+      ? "DIRTY"
+      : value === "NA" || value === "N/A"
+      ? "NA"
+      : "CLEAN";
+
+  return (
+    <div className="touch-btn-toggle">
+      <button
+        type="button"
+        onClick={() => onChange("CLEAN")}
+        className={`touch-btn-option ${current === "CLEAN" ? "active-yes" : ""}`}
+        title="Clean & Sanitized"
+      >
+        ✓ CLEAN
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange("DIRTY")}
+        className={`touch-btn-option ${current === "DIRTY" ? "active-no" : ""}`}
+        title="Needs Cleaning / Attention"
+      >
+        ⚠️ NEEDS ATTN
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange("NA")}
+        className={`touch-btn-option ${current === "NA" ? "active-na" : ""}`}
+        title="Not Applicable"
+      >
+        — N/A
+      </button>
+    </div>
+  );
+}
+
 function YesNoNaToggle({
   value,
   onChange,
@@ -285,7 +329,50 @@ function getInitialDataForSchema(
   currentUserName?: string
 ) {
   const sections = schema?.sections || [];
-  const defaultStaff = (availableStaff && availableStaff[0]) || "Staff Member";
+  const defaultStaff = (availableStaff && availableStaff[0]) || currentUserName || "Staff Member";
+
+  const hasItemTypes = sections.some((s: any) =>
+    (s.items || []).some((it: any) => it.itemType)
+  );
+
+  const isLegacyCategory = [
+    "HOUSEKEEPING",
+    "EQUIPMENT",
+    "TEMPERATURE",
+    "SAFETY_GLASS",
+  ].includes(category);
+
+  // If dynamic category OR explicitly typed items
+  if (!isLegacyCategory || hasItemTypes) {
+    const checkpoints: Record<string, any> = {};
+    sections.forEach((sec: any) => {
+      (sec.items || []).forEach((item: any) => {
+        const id = item.id || `item-${Math.random().toString(36).substring(2, 9)}`;
+        const itemType = item.itemType || (item.targetMinTemp !== undefined ? "TEMPERATURE" : "STATUS");
+        const min = item.targetMinTemp ?? item.targetMin;
+        const max = item.targetMaxTemp ?? item.targetMax;
+        let initialTemp = "";
+        if (itemType === "TEMPERATURE" && min !== undefined && max !== undefined) {
+          initialTemp = ((min + max) / 2).toFixed(1);
+        }
+        checkpoints[id] = {
+          id,
+          name: item.name || item.task || "Checkpoint",
+          itemType,
+          status: itemType === "CLEAN_DIRTY" ? "CLEAN" : "YES",
+          value: item.targetValue !== undefined ? String(item.targetValue) : "",
+          temp: initialTemp,
+          time: item.defaultTime || "09:00",
+          assignee: item.defaultAssignee || defaultStaff,
+          notes: "",
+          min,
+          max,
+          unit: item.unit || (itemType === "TEMPERATURE" ? "°C" : ""),
+        };
+      });
+    });
+    return { checkpoints };
+  }
 
   if (category === "HOUSEKEEPING") {
     let items = sections.flatMap((s: any) =>
@@ -388,6 +475,50 @@ function getInitialDataForSchema(
 
   // Calculate Compliance Score
   const complianceScore = useMemo(() => {
+    if (formData.checkpoints && Object.keys(formData.checkpoints).length > 0) {
+      let total = 0;
+      let valid = 0;
+      Object.values(formData.checkpoints).forEach((cp: any) => {
+        const type = cp.itemType || "STATUS";
+        if (type === "STATUS") {
+          if (cp.status === "NA" || cp.status === "N/A") return;
+          total++;
+          if (cp.status === "YES" || cp.status === "PASS" || cp.status === true) valid++;
+        } else if (type === "CLEAN_DIRTY") {
+          if (cp.status === "NA" || cp.status === "N/A") return;
+          total++;
+          if (cp.status === "CLEAN" || cp.status === "YES") valid++;
+        } else if (type === "TEMPERATURE") {
+          if (cp.temp === "NA" || cp.temp === "N/A" || !cp.temp) return;
+          total++;
+          const tVal = parseFloat(cp.temp);
+          if (!isNaN(tVal)) {
+            const min = cp.min ?? -20;
+            const max = cp.max ?? 10;
+            if (tVal >= min && tVal <= max) valid++;
+          }
+        } else if (type === "NUMERIC") {
+          if (cp.value === "NA" || cp.value === "N/A" || cp.value === "") return;
+          total++;
+          const nVal = parseFloat(cp.value);
+          if (!isNaN(nVal)) {
+            const hasMin = cp.min !== undefined && cp.min !== null;
+            const hasMax = cp.max !== undefined && cp.max !== null;
+            if (hasMin && hasMax) {
+              if (nVal >= cp.min && nVal <= cp.max) valid++;
+            } else if (hasMin) {
+              if (nVal >= cp.min) valid++;
+            } else if (hasMax) {
+              if (nVal <= cp.max) valid++;
+            } else {
+              valid++;
+            }
+          }
+        }
+      });
+      return total === 0 ? 100 : Math.round((valid / total) * 100);
+    }
+
     if (template.category === "TEMPERATURE") {
       const readings = formData.readings || [];
       if (!readings.length) return 100;
@@ -494,6 +625,16 @@ function getInitialDataForSchema(
 
   const sections = parsedSchema?.sections || [];
 
+  const isDynamicTemplate = useMemo(() => {
+    if (formData.checkpoints && Object.keys(formData.checkpoints).length > 0) return true;
+    const hasItemType = sections.some((s: any) =>
+      (s.items || []).some((i: any) => i.itemType)
+    );
+    if (hasItemType) return true;
+    const legacyCategories = ["HOUSEKEEPING", "EQUIPMENT", "TEMPERATURE", "SAFETY_GLASS"];
+    return !legacyCategories.includes(template.category);
+  }, [formData.checkpoints, sections, template.category]);
+
   return (
     <div className="dynamic-sheet-container">
       {/* Top Header Card */}
@@ -553,7 +694,7 @@ function getInitialDataForSchema(
               </div>
             </div>
 
-            {template.frequency === "SHIFT_WISE" && (
+            {(template.frequency === "SHIFT_WISE" || availableShifts.length > 1) && (
               <div className="control-item">
                 <label>Operational Shift</label>
                 <select
@@ -591,8 +732,297 @@ function getInitialDataForSchema(
         </div>
       ) : (
         <div className="sheet-body-content">
-          {/* 1. HOUSEKEEPING / MULTI-SHIFT CHECKLIST */}
-          {template.category === "HOUSEKEEPING" && (
+          {/* 0. UNIVERSAL DYNAMIC CHECKLIST (Custom report tabs, custom categories, or typed items) */}
+          {isDynamicTemplate && (
+            <div className="sections-grid">
+              {sections.map((sec: any) => {
+                const secItems = sec.items || [];
+                return (
+                  <div key={sec.id} className="table-card">
+                    <div className="table-header-bar">
+                      <div>
+                        <h3>{sec.title}</h3>
+                        <span className="item-count-badge">{secItems.length} checkpoints</span>
+                      </div>
+                      <div className="quick-action-bar">
+                        <span className="quick-action-label">Batch Actions:</span>
+                        <button
+                          type="button"
+                          className="quick-btn-action yes"
+                          onClick={() => {
+                            const updatedCheckpoints = { ...(formData.checkpoints || {}) };
+                            secItems.forEach((it: any) => {
+                              const cp = updatedCheckpoints[it.id] || {
+                                id: it.id,
+                                name: it.name || it.task,
+                                itemType: it.itemType || "STATUS",
+                              };
+                              const type = cp.itemType || it.itemType || "STATUS";
+                              const min = cp.min ?? it.targetMinTemp ?? it.targetMin;
+                              const max = cp.max ?? it.targetMaxTemp ?? it.targetMax;
+
+                              if (type === "CLEAN_DIRTY") cp.status = "CLEAN";
+                              else if (type === "STATUS") cp.status = "YES";
+                              else if (type === "TEMPERATURE" && min !== undefined && max !== undefined) {
+                                cp.temp = ((min + max) / 2).toFixed(1);
+                              } else if (type === "NUMERIC" && it.targetValue !== undefined) {
+                                cp.value = String(it.targetValue);
+                              }
+                              updatedCheckpoints[it.id] = cp;
+                            });
+                            setFormData({ ...formData, checkpoints: updatedCheckpoints });
+                          }}
+                        >
+                          ✓ All Pass / In Spec
+                        </button>
+                        <button
+                          type="button"
+                          className="quick-btn-action na"
+                          onClick={() => {
+                            const updatedCheckpoints = { ...(formData.checkpoints || {}) };
+                            secItems.forEach((it: any) => {
+                              const cp = updatedCheckpoints[it.id] || {
+                                id: it.id,
+                                name: it.name || it.task,
+                                itemType: it.itemType || "STATUS",
+                              };
+                              cp.status = "NA";
+                              if (cp.itemType === "TEMPERATURE") cp.temp = "N/A";
+                              if (cp.itemType === "NUMERIC") cp.value = "N/A";
+                              updatedCheckpoints[it.id] = cp;
+                            });
+                            setFormData({ ...formData, checkpoints: updatedCheckpoints });
+                          }}
+                        >
+                          — All N/A
+                        </button>
+                        <button
+                          type="button"
+                          className="quick-btn-action no"
+                          onClick={() => {
+                            const updatedCheckpoints = { ...(formData.checkpoints || {}) };
+                            secItems.forEach((it: any) => {
+                              const cp = updatedCheckpoints[it.id] || {
+                                id: it.id,
+                                name: it.name || it.task,
+                                itemType: it.itemType || "STATUS",
+                              };
+                              if (cp.itemType === "CLEAN_DIRTY") cp.status = "DIRTY";
+                              else cp.status = "NO";
+                              updatedCheckpoints[it.id] = cp;
+                            });
+                            setFormData({ ...formData, checkpoints: updatedCheckpoints });
+                          }}
+                        >
+                          ✕ All Flag / No
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="table-responsive">
+                      <table className="audit-table">
+                        <thead>
+                          <tr>
+                            <th>Checkpoint / Parameter</th>
+                            <th>Verification & Reading</th>
+                            <th>Assigned Staff</th>
+                            <th>Time</th>
+                            <th style={{ width: "160px" }}>Notes / CAPA</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {secItems.map((item: any, idx: number) => {
+                            const itemType = item.itemType || (item.targetMinTemp !== undefined ? "TEMPERATURE" : "STATUS");
+                            const min = item.targetMinTemp ?? item.targetMin;
+                            const max = item.targetMaxTemp ?? item.targetMax;
+                            const unit = item.unit || (itemType === "TEMPERATURE" ? "°C" : "");
+
+                            const cp = (formData.checkpoints && formData.checkpoints[item.id]) || {
+                              id: item.id,
+                              name: item.name || item.task,
+                              itemType,
+                              status: itemType === "CLEAN_DIRTY" ? "CLEAN" : "YES",
+                              value: item.targetValue !== undefined ? String(item.targetValue) : "",
+                              temp: itemType === "TEMPERATURE" && min !== undefined && max !== undefined ? ((min + max) / 2).toFixed(1) : "",
+                              time: item.defaultTime || "09:00",
+                              assignee: item.defaultAssignee || availableStaff[0] || "Staff Member",
+                              notes: "",
+                              min,
+                              max,
+                              unit,
+                            };
+
+                            const updateCp = (changes: any) => {
+                              setFormData({
+                                ...formData,
+                                checkpoints: {
+                                  ...(formData.checkpoints || {}),
+                                  [item.id]: { ...cp, ...changes },
+                                },
+                              });
+                            };
+
+                            return (
+                              <tr key={item.id || idx}>
+                                <td>
+                                  <div className="font-semibold">{item.name || item.task}</div>
+                                  {item.hint && <div style={{ fontSize: "0.75rem", color: "#64748b", marginTop: "2px" }}>{item.hint}</div>}
+                                  {(min !== undefined || max !== undefined) && (
+                                    <span className="safe-range-badge" style={{ marginTop: "4px", display: "inline-block" }}>
+                                      Safe Range: {min !== undefined ? `${min}` : "-∞"} to {max !== undefined ? `${max}` : "+∞"} {unit}
+                                    </span>
+                                  )}
+                                </td>
+                                <td>
+                                  {/* RENDER BY ITEM TYPE */}
+                                  {itemType === "TEMPERATURE" && (
+                                    <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                                      <TouchTempSelect
+                                        value={cp.temp}
+                                        min={min ?? -20}
+                                        max={max ?? 10}
+                                        onChange={(val) => updateCp({ temp: val })}
+                                      />
+                                      {cp.temp && cp.temp !== "N/A" && (
+                                        <span style={{ fontSize: "0.8rem", whiteSpace: "nowrap" }}>
+                                          {parseFloat(cp.temp) >= (min ?? -20) && parseFloat(cp.temp) <= (max ?? 10) ? (
+                                            <span className="optimal-tag">✓ In Spec</span>
+                                          ) : (
+                                            <span className="breach-tag">⚠️ Breach</span>
+                                          )}
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {itemType === "NUMERIC" && (
+                                    <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                                      <input
+                                        type="number"
+                                        step="any"
+                                        value={cp.value ?? ""}
+                                        placeholder={`Value (${unit || "qty"})`}
+                                        onChange={(e) => updateCp({ value: e.target.value })}
+                                        className="control-input"
+                                        style={{ width: "120px", padding: "6px 8px" }}
+                                      />
+                                      {unit && <span style={{ fontWeight: 600, fontSize: "0.85rem", color: "#64748b" }}>{unit}</span>}
+                                      <button
+                                        type="button"
+                                        className={`na-toggle-btn ${cp.value === "N/A" ? "active" : ""}`}
+                                        onClick={() => updateCp({ value: cp.value === "N/A" ? "" : "N/A" })}
+                                      >
+                                        N/A
+                                      </button>
+                                      {cp.value && cp.value !== "N/A" && (
+                                        <span>
+                                          {(() => {
+                                            const num = parseFloat(cp.value);
+                                            if (isNaN(num)) return null;
+                                            const breach = (min !== undefined && num < min) || (max !== undefined && num > max);
+                                            return breach ? (
+                                              <span className="breach-tag">⚠️ Breach</span>
+                                            ) : (
+                                              <span className="optimal-tag">✓ In Range</span>
+                                            );
+                                          })()}
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {itemType === "CLEAN_DIRTY" && (
+                                    <CleanDirtyNaToggle
+                                      value={cp.status}
+                                      onChange={(val) => updateCp({ status: val })}
+                                    />
+                                  )}
+
+                                  {itemType === "STATUS" && (
+                                    <YesNoNaToggle
+                                      value={cp.status}
+                                      onChange={(val) => updateCp({ status: val })}
+                                    />
+                                  )}
+
+                                  {itemType === "TEXT" && (
+                                    <input
+                                      type="text"
+                                      value={cp.value || ""}
+                                      placeholder="Enter notes or observations..."
+                                      onChange={(e) => updateCp({ value: e.target.value })}
+                                      className="control-input"
+                                      style={{ width: "100%", minWidth: "150px", padding: "6px 8px" }}
+                                    />
+                                  )}
+
+                                  {itemType === "TIME" && (
+                                    <select
+                                      value={cp.time || "09:00"}
+                                      onChange={(e) => updateCp({ time: e.target.value })}
+                                      className="table-select touch-time-select"
+                                    >
+                                      {TIME_OPTIONS.map((t) => (
+                                        <option key={t} value={t}>
+                                          {formatTimeSlot(t)}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  )}
+                                </td>
+
+                                <td>
+                                  <select
+                                    value={cp.assignee || availableStaff[0]}
+                                    onChange={(e) => updateCp({ assignee: e.target.value })}
+                                    className="table-select"
+                                  >
+                                    {availableStaff.map((staff) => (
+                                      <option key={staff} value={staff}>
+                                        {staff}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </td>
+
+                                <td>
+                                  <select
+                                    value={cp.time || "09:00"}
+                                    onChange={(e) => updateCp({ time: e.target.value })}
+                                    className="table-select touch-time-select"
+                                  >
+                                    {TIME_OPTIONS.map((t) => (
+                                      <option key={t} value={t}>
+                                        {formatTimeSlot(t)}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </td>
+
+                                <td>
+                                  <input
+                                    type="text"
+                                    value={cp.notes || ""}
+                                    placeholder="Optional notes..."
+                                    onChange={(e) => updateCp({ notes: e.target.value })}
+                                    className="control-input"
+                                    style={{ fontSize: "0.8rem", padding: "4px 8px" }}
+                                  />
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* 1. HOUSEKEEPING / MULTI-SHIFT CHECKLIST (Legacy) */}
+          {!isDynamicTemplate && template.category === "HOUSEKEEPING" && (
             <div className="table-card">
               <div className="table-header-bar">
                 <div>
@@ -709,7 +1139,7 @@ function getInitialDataForSchema(
           )}
 
           {/* 2. EQUIPMENT SANITIZATION */}
-          {template.category === "EQUIPMENT" && (
+          {!isDynamicTemplate && template.category === "EQUIPMENT" && (
             <div className="sections-grid">
               {sections.map((sec: any) => {
                 const secItems = (formData.completedItems || []).filter((ci: any) =>
@@ -829,7 +1259,7 @@ function getInitialDataForSchema(
           )}
 
           {/* 3. TEMPERATURE & COLD CHAIN LOG */}
-          {template.category === "TEMPERATURE" && (
+          {!isDynamicTemplate && template.category === "TEMPERATURE" && (
             <div className="table-card">
               <div className="table-header-bar">
                 <div>
@@ -956,7 +1386,7 @@ function getInitialDataForSchema(
           )}
 
           {/* 4. SAFETY GLASS / PEST / FACILITY */}
-          {template.category === "SAFETY_GLASS" && (
+          {!isDynamicTemplate && template.category === "SAFETY_GLASS" && (
             <div className="table-card">
               <div className="table-header-bar">
                 <div>
@@ -1054,7 +1484,7 @@ function getInitialDataForSchema(
           )}
 
           {/* 5. MONTHLY MAINTENANCE & CUSTOM */}
-          {(template.category === "MAINTENANCE" || template.category === "CUSTOM") && (
+          {!isDynamicTemplate && (template.category === "MAINTENANCE" || template.category === "CUSTOM") && (
             <div className="table-card">
               <div className="table-header-bar">
                 <div>
