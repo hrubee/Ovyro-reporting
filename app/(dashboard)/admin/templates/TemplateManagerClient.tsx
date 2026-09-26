@@ -262,10 +262,23 @@ export default function TemplateManagerClient({
   const [customShiftInput, setCustomShiftInput] = useState("");
   const [selectedOutlets, setSelectedOutlets] = useState<string[]>([]);
 
+  // Archive state & filtering
+  const [archiveFilter, setArchiveFilter] = useState<"all" | "active" | "archived">("all");
+  const [isArchived, setIsArchived] = useState(false);
+
   // Sections & Builder state
   const [builderMode, setBuilderMode] = useState<"visual" | "bulk" | "preview">("visual");
   const [sections, setSections] = useState<Section[]>([]);
   const [bulkText, setBulkText] = useState("");
+
+  const activeCount = useMemo(() => templates.filter((t) => !t.isArchived).length, [templates]);
+  const archivedCount = useMemo(() => templates.filter((t) => !!t.isArchived).length, [templates]);
+
+  const filteredTemplates = useMemo(() => {
+    if (archiveFilter === "active") return templates.filter((t) => !t.isArchived);
+    if (archiveFilter === "archived") return templates.filter((t) => !!t.isArchived);
+    return templates;
+  }, [templates, archiveFilter]);
 
   const availableShiftsPool = useMemo(() => {
     const set = new Set<string>(["Morning", "Afternoon", "Evening", "Night"]);
@@ -324,6 +337,7 @@ export default function TemplateManagerClient({
     );
     setBuilderMode("visual");
     setError(null);
+    setIsArchived(false);
     setIsModalOpen(true);
   };
 
@@ -344,6 +358,7 @@ export default function TemplateManagerClient({
 
   const handleOpenEdit = (tpl: any) => {
     setEditingTemplate(tpl);
+    setIsArchived(!!tpl.isArchived);
     setTitle(tpl.title || "");
     setSlug(tpl.slug || "");
     const standardCategories = ["HOUSEKEEPING", "TEMPERATURE", "EQUIPMENT", "SAFETY_GLASS", "CHEMICAL", "COOKING_HACCP", "MAINTENANCE"];
@@ -560,6 +575,7 @@ export default function TemplateManagerClient({
       icon,
       description,
       frequency,
+      isArchived,
       schema,
       outletIds: selectedOutlets,
     };
@@ -593,6 +609,34 @@ export default function TemplateManagerClient({
       setError(err.message || "An error occurred");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleToggleArchive = async (tpl: any) => {
+    const willArchive = !tpl.isArchived;
+    const confirmMsg = willArchive
+      ? `Archive Report Tab "${tpl.title}"?\n\nIt will be hidden from daily operations and outlet checklists. Historical audit logs will remain safe.`
+      : `Restore Report Tab "${tpl.title}"?\n\nIt will become active and reappear in assigned outlet checklists.`;
+
+    if (!confirm(confirmMsg)) return;
+
+    try {
+      const res = await fetch(`/api/admin/templates/${tpl.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isArchived: willArchive }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Failed to update archive status");
+
+      setTemplates((prev) =>
+        prev.map((t) => (t.id === tpl.id ? { ...t, isArchived: willArchive } : t))
+      );
+      showToast(json.message || (willArchive ? `✓ "${tpl.title}" archived.` : `✓ "${tpl.title}" restored.`));
+      router.refresh();
+    } catch (err: any) {
+      alert(err.message || "Failed to update archive status");
     }
   };
 
@@ -640,21 +684,52 @@ export default function TemplateManagerClient({
         </button>
       </div>
 
+      {/* Archive / Active Tabs Filter */}
+      <div className="template-filter-tabs">
+        <button
+          type="button"
+          onClick={() => setArchiveFilter("all")}
+          className={`filter-tab-pill ${archiveFilter === "all" ? "active" : ""}`}
+        >
+          All Report Tabs ({templates.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setArchiveFilter("active")}
+          className={`filter-tab-pill ${archiveFilter === "active" ? "active" : ""}`}
+        >
+          ✓ Active ({activeCount})
+        </button>
+        <button
+          type="button"
+          onClick={() => setArchiveFilter("archived")}
+          className={`filter-tab-pill ${archiveFilter === "archived" ? "active" : ""}`}
+        >
+          📦 Archived ({archivedCount})
+        </button>
+      </div>
+
       {/* Templates / Report Tabs Grid */}
       <div className="templates-grid">
-        {templates.length === 0 ? (
+        {filteredTemplates.length === 0 ? (
           <div className="empty-state-card" style={{ gridColumn: "1 / -1", textAlign: "center", padding: "3rem" }}>
-            <span style={{ fontSize: "2.5rem" }}>📑</span>
-            <h3 style={{ margin: "1rem 0 0.5rem" }}>No Report Tabs Configured</h3>
+            <span style={{ fontSize: "2.5rem" }}>{archiveFilter === "archived" ? "📦" : "📑"}</span>
+            <h3 style={{ margin: "1rem 0 0.5rem" }}>
+              {archiveFilter === "archived" ? "No Archived Report Tabs" : "No Report Tabs Configured"}
+            </h3>
             <p style={{ color: "#64748b", marginBottom: "1.5rem" }}>
-              Get started by creating your first Report Tab or choosing a quick-start preset.
+              {archiveFilter === "archived"
+                ? "You haven't archived any report tabs yet. Active tabs can be archived at any time to hide them from daily staff operations."
+                : "Get started by creating your first Report Tab or choosing a quick-start preset."}
             </p>
-            <button onClick={handleOpenCreate} className="btn-create-primary" style={{ display: "inline-flex" }}>
-              <span>➕</span> Create New Report Tab
-            </button>
+            {archiveFilter !== "archived" && (
+              <button onClick={handleOpenCreate} className="btn-create-primary" style={{ display: "inline-flex" }}>
+                <span>➕</span> Create New Report Tab
+              </button>
+            )}
           </div>
         ) : (
-          templates.map((tpl) => {
+          filteredTemplates.map((tpl) => {
             const assignedCount = (tpl.outletTemplates || []).length;
             const parsed = safeJson(tpl.schema, {});
             const totalItems = (parsed.sections || []).reduce(
@@ -663,10 +738,15 @@ export default function TemplateManagerClient({
             );
 
             return (
-              <div key={tpl.id} className="template-card">
+              <div key={tpl.id} className={`template-card ${tpl.isArchived ? "is-archived" : ""}`}>
                 <div className="template-card-header">
                   <div className="template-icon-circle">{tpl.icon || "📋"}</div>
                   <div className="template-badges">
+                    {tpl.isArchived ? (
+                      <span className="badge-archived">📦 Archived</span>
+                    ) : (
+                      <span className="badge-active">✓ Active</span>
+                    )}
                     <span className="badge-category">{tpl.category}</span>
                     <span className="badge-freq">{tpl.frequency}</span>
                   </div>
@@ -692,12 +772,31 @@ export default function TemplateManagerClient({
                   <button
                     onClick={() => handleOpenEdit(tpl)}
                     className="btn-action-edit"
+                    title="Edit configuration & checkpoints"
                   >
-                    ✏️ Edit Report Tab
+                    ✏️ Edit
                   </button>
+                  {tpl.isArchived ? (
+                    <button
+                      onClick={() => handleToggleArchive(tpl)}
+                      className="btn-action-restore"
+                      title="Restore to active outlet checklists"
+                    >
+                      ♻️ Restore
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleToggleArchive(tpl)}
+                      className="btn-action-archive"
+                      title="Archive report tab and hide from operations"
+                    >
+                      📦 Archive
+                    </button>
+                  )}
                   <button
                     onClick={() => handleDelete(tpl.id, tpl.title)}
                     className="btn-action-delete"
+                    title="Permanently delete template"
                   >
                     🗑️ Delete
                   </button>
@@ -1315,6 +1414,30 @@ export default function TemplateManagerClient({
                   ))}
                 </div>
               </div>
+
+              {/* Archive Status Toggle (when editing existing template) */}
+              {editingTemplate && (
+                <div
+                  className="form-section-card"
+                  style={{
+                    background: isArchived ? "#fff7ed" : "#f8fafc",
+                    border: isArchived ? "1px solid #fed7aa" : "1px solid var(--border)",
+                  }}
+                >
+                  <label style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer", fontWeight: 600, fontSize: "0.95rem" }}>
+                    <input
+                      type="checkbox"
+                      checked={isArchived}
+                      onChange={(e) => setIsArchived(e.target.checked)}
+                      style={{ width: "18px", height: "18px" }}
+                    />
+                    <span>📦 Archive this Report Tab</span>
+                  </label>
+                  <p style={{ margin: "6px 0 0 28px", fontSize: "0.82rem", color: "#64748b" }}>
+                    Archiving hides this tab from active daily outlet checklists and operator navigation while preserving all historical audit submissions.
+                  </p>
+                </div>
+              )}
 
               {/* Action Buttons */}
               <div className="modal-actions-bar">

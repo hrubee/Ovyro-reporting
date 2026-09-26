@@ -21,9 +21,19 @@ export async function GET(req: NextRequest) {
   const user = session.user as { organizationId: string; role: string; email?: string };
   const organizationId = await resolveOrganizationId(user);
 
+  const { searchParams } = new URL(req.url);
+  const status = searchParams.get("status"); // "active" | "archived" | "all"
+
+  const where: any = { organizationId };
+  if (status === "active") {
+    where.isArchived = false;
+  } else if (status === "archived") {
+    where.isArchived = true;
+  }
+
   try {
     const templates = await prisma.formTemplate.findMany({
-      where: { organizationId, isArchived: false },
+      where,
       orderBy: { createdAt: "desc" },
       include: {
         outletTemplates: {

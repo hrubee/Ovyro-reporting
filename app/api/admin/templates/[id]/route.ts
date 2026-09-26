@@ -83,7 +83,7 @@ export async function PUT(
       return NextResponse.json({ error: "Report tab not found" }, { status: 404 });
     }
 
-    const { title, icon, description, frequency, category, schema, outletIds } = body;
+    const { title, icon, description, frequency, category, schema, outletIds, isArchived } = body;
 
     const schemaString =
       schema !== undefined
@@ -100,6 +100,7 @@ export async function PUT(
         description: description !== undefined ? description : existing.description,
         frequency: frequency || existing.frequency,
         category: category || existing.category,
+        isArchived: isArchived !== undefined ? Boolean(isArchived) : existing.isArchived,
         schema: schemaString,
         version: { increment: 1 },
       },
@@ -137,6 +138,61 @@ export async function PUT(
   } catch (err: any) {
     console.error("Update report tab error:", err);
     return NextResponse.json({ error: err.message || "Failed to update report tab" }, { status: 500 });
+  }
+}
+
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await auth();
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const user = session.user as { organizationId: string; role: string; permissions?: string[]; email?: string };
+  const canManage =
+    user.role === "ORG_ADMIN" ||
+    user.role === "SUPER_ADMIN" ||
+    user.role === "ADMIN" ||
+    userHasPermission(user.permissions, "manage_templates", user.role);
+
+  if (!canManage) {
+    return NextResponse.json({ error: "Forbidden: Manage Report Tabs permission required" }, { status: 403 });
+  }
+
+  const organizationId = await resolveOrganizationId(user);
+  const { id } = await params;
+
+  try {
+    const existing = await prisma.formTemplate.findFirst({
+      where: { id, organizationId },
+    });
+
+    if (!existing) {
+      return NextResponse.json({ error: "Report tab not found" }, { status: 404 });
+    }
+
+    const body = await req.json().catch(() => ({}));
+    const targetArchived = body.isArchived !== undefined ? Boolean(body.isArchived) : !existing.isArchived;
+
+    const updated = await prisma.formTemplate.update({
+      where: { id },
+      data: {
+        isArchived: targetArchived,
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      isArchived: updated.isArchived,
+      message: updated.isArchived
+        ? `"${updated.title}" has been archived and hidden from daily operations.`
+        : `"${updated.title}" has been unarchived and restored to active checklists.`,
+    });
+  } catch (err: any) {
+    console.error("Archive report tab error:", err);
+    return NextResponse.json({ error: err.message || "Failed to update archive status" }, { status: 500 });
   }
 }
 

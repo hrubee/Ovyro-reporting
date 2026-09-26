@@ -26,7 +26,7 @@ export default async function AdminTemplatesPage() {
 
   const [rawTemplates, rawOutlets] = await Promise.all([
     prisma.formTemplate.findMany({
-      where: { organizationId, isArchived: false },
+      where: { organizationId },
       orderBy: { createdAt: "desc" },
       include: {
         outletTemplates: {
